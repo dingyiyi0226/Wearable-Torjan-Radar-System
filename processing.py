@@ -5,6 +5,62 @@ import sys, os
 import time, threading
 from calphase import Phase
 
+class singleDirectionFMCW:
+	def __init__(self, bw, tm): ## tm(ms)
+		self._bw = bw
+		self._tm = tm
+		self._slope = self._bw/self._tm*2
+
+		self._realTimeFreq = []
+
+		self._fb1 = 0
+		self._fb2 = 0
+
+		self._beatFreq = self._slope*0.0001  ## assume travel time = 0.1us
+		self._dopplerFreq = 0
+
+		self._range = 0
+		self._velocity = 0
+
+	def setRealTimeFreq(self,freq):
+		self._realTimeFreq.append(freq)
+
+	### setting beatFreq and doppler Freq from realTimeFreq
+	def calculateFreq(self):
+		diff = np.abs(np.diff(self._realTimeFreq))
+		change = []
+		for index, value in enumerate(diff):
+			if value > 1: change.append(index)
+		if len(change) > 1: 
+			print("error")
+		elif change:
+			self._fb1 = sum(self._realTimeFreq[:change[0]+1])/(change[0]+1)
+			self._fb2 = sum(self._realTimeFreq[change[0]+1:])/len(self._realTimeFreq[change[0]+1:])
+		else: 
+			self._fb2 = self._fb1 = sum(self._realTimeFreq)/len(self._realTimeFreq)
+
+		ftmp1 = (self._fb1 + self._fb2)/2
+		ftmp2 = abs(self._fb1 - self._fb2)/2
+
+		if abs(ftmp1 - self._beatFreq) < abs(ftmp2 - self._beatFreq):
+			self._beatFreq = ftmp1
+			self._dopplerFreq = ftmp2
+		else:
+			self._beatFreq = ftmp2
+			self._dopplerFreq = ftmp1
+
+	def calculateInfo(self):
+		self._range = self._beatFreq * 3e8 / self._slope / 2
+		self._velocity = self._dopplerFreq * 3e8 / 5.8e9 / 2
+	
+	def RangeAndVelocity(self):
+		calculateFreq()
+		calculateInfo()
+		return self._range, self._velocity
+
+
+
+
 class Signal:
 	def __init__(self, N, drawEvent):
 		self._N = N
@@ -12,6 +68,7 @@ class Signal:
 		self._datas     = [0. for i in range(self._N)]
 		self._x         = [i  for i in range(self._N)]
 		self._fftDatas  = []
+		self._peakFreq  = 0
 		self._drawEvent = drawEvent
 
 	def readData(self,data):
@@ -27,6 +84,7 @@ class Signal:
 	def fftData(self):
 		fftdata_o = abs(np.fft.fft(self._datas))
 		self._fftDatas = [ i*2/self._N for i in fftdata_o ]
+		self._peakFreq = max(self._fftDatas[1:])  ## block DC
 		self._drawEvent.set()
 		# print(self._fftDatas)
 	def drawData(self, DCBlock = False, maxFreq = None):
@@ -55,6 +113,11 @@ class Signal:
 
 		self._drawEvent.clear()
 		return True
+
+	@property
+	def peakFreq(self):
+		return self._peakFreq
+	
 """
 ## adding a variable for threading.event
 class ReadEvent(threading.Event):

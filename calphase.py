@@ -1,4 +1,4 @@
-import csv
+# import csv
 import numpy as np
 import time
 
@@ -58,7 +58,8 @@ class Phase:
 		return self._pin2phase.get(pin)
 
 	def isValidDirection(self, theta):
-		return theta >= 10 and theta <= 170
+		return not (theta%5 == 0)
+		# return theta >= 10 and theta <= 170
 
 	def getEachPhase(self, theta):
 		if not self.isValidDirection(theta):
