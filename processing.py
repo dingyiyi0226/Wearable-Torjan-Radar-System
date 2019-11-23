@@ -25,15 +25,30 @@ class singleDirectionFMCW:
 	def setRealTimeFreq(self,freq):
 		self._realTimeFreq.append(freq)
 
+	def RangeAndVelocity(self):
+		if not self._realTimeFreq: return None
+		# print(self._realTimeFreq)
+		self._calculateFreq()
+		self._calculateInfo()
+		return self._range, self._velocity
+
+	def reset(self):
+		self._realTimeFreq = []
+		self._fb1 = 0
+		self._fb2 = 0
+		self._dopplerFreq = 0
+		self._range = 0
+		self._velocity = 0
+
 	### setting beatFreq and doppler Freq from realTimeFreq
-	def calculateFreq(self):
+	def _calculateFreq(self):
 		diff = np.abs(np.diff(self._realTimeFreq))
 		change = []
 		for index, value in enumerate(diff):
 			if value > 1: change.append(index)
-		if len(change) > 1: 
-			print("error")
-		elif change:
+		# if len(change) > 1: 
+		# 	print("freq2info Error", diff)
+		if change:
 			self._fb1 = sum(self._realTimeFreq[:change[0]+1])/(change[0]+1)
 			self._fb2 = sum(self._realTimeFreq[change[0]+1:])/len(self._realTimeFreq[change[0]+1:])
 		else: 
@@ -49,17 +64,10 @@ class singleDirectionFMCW:
 			self._beatFreq = ftmp2
 			self._dopplerFreq = ftmp1
 
-	def calculateInfo(self):
+	### calculating range and velocity from beatFreq and doppler Freq
+	def _calculateInfo(self):
 		self._range = self._beatFreq * 3e8 / self._slope / 2
 		self._velocity = self._dopplerFreq * 3e8 / 5.8e9 / 2
-	
-	def RangeAndVelocity(self):
-		calculateFreq()
-		calculateInfo()
-		return self._range, self._velocity
-
-
-
 
 class Signal:
 	def __init__(self, N, drawEvent):
@@ -79,12 +87,20 @@ class Signal:
 		else:
 			## receive N datas
 			self._datacnt=0
+			# print('readend')
 			self.fftData()
+			# print('fftend')
 
 	def fftData(self):
+		global directionInfo
+		global direction
 		fftdata_o = abs(np.fft.fft(self._datas))
 		self._fftDatas = [ i*2/self._N for i in fftdata_o ]
 		self._peakFreq = max(self._fftDatas[1:])  ## block DC
+
+		# print('setRealTimeFreq: ', direction)
+		directionInfo[direction].setRealTimeFreq(self._peakFreq)
+
 		self._drawEvent.set()
 		# print(self._fftDatas)
 	def drawData(self, DCBlock = False, maxFreq = None):
@@ -145,6 +161,8 @@ class ReadEvent(threading.Event):
 def read(ser,readEvent):
 
 	global signal
+	global direction
+	global setphaseIntervalFlag
 
 	while True:
 
@@ -158,12 +176,20 @@ def read(ser,readEvent):
 			# print('reading', s)
 
 			if s.startswith('d'):
+				if not setphaseIntervalFlag: 
+					# print('interval')
+					continue
 				try:
 					signal.readData(float(s[2:]))
+
 
 				except ValueError:
 					print('Value Error: ',s[2:])
 					continue
+			elif s.startswith('p'):
+				print('did set phase')
+				setphaseIntervalFlag = True
+
 			else: 
 				print('Read: ', s)
 				pass
@@ -180,24 +206,47 @@ def writeTime(ser):
 		# print('writing',s)
 		time.sleep(2)
 
-def setphase(direction):
+def setphase(angle):
 	global ser
 	global phase
 
-	if not phase.isValidDirection(direction): return None
+	global setphaseIntervalFlag
 
-	act = phase.getActualDirection(direction)
-	thetas = phase.getEachPhase2Pin(direction)
+	global direction
+	global actdirection
+
+
+	if not phase.isValidDirection(angle): return False
+
+	direction = angle
+	actdirection = phase.getActualDirection(angle)
+	thetas = phase.getEachPhase2Pin(angle)
 
 	data = 'p '+str(thetas[0])+' '+str(thetas[1])+' '+str(thetas[2])+' '+str(thetas[3])
+	setphaseIntervalFlag = False
 	ser.write(data.encode())
-	return act
+	print('setting:', angle)
+
+	return True
+
 
 def main():
-	
+
+	## global variebles
+
+	global ser
+	global signal
+	global phase
+	global readEvent
+	global drawEvent
+
+	global directionInfo
+
+	global setphaseIntervalFlag
+	global direction
+	global actdirection
 
 	## ------------- Port Connecting ------------- ##
-	global ser
 
 	try:
 		## on mac
@@ -222,13 +271,15 @@ def main():
 	## ------------------------------------------ ##
 
 	## the Number of sampling data 
-	N = 1024
+	N = 500
 
 	drawEvent = threading.Event()
-	global signal
 	signal = Signal(N = N,drawEvent = drawEvent)
-	global phase 
+
+	directionInfo = { i: singleDirectionFMCW(100000,500) for i in range(10,171,5)}
+
 	phase = Phase()
+	setphaseIntervalFlag = True
 
 	readEvent = threading.Event()
 	# readEvent = ReadEvent()
@@ -239,18 +290,28 @@ def main():
 	# writeThread = threading.Thread(target = writeTime, args = [ser],daemon = True)
 	# writeThread.start()
 
+	setphase(90)
+	setphaseIntervalFlag = True
+
 	try:
+		prompt = ''
 		while True: 
-			s = input("commands: ")
+			s = input("commands: "+prompt)
 			if s.startswith('q'): break
 
 			elif s.startswith('read'):
-				print('Reading Signal')
-				readEvent.set()
+				if readEvent.is_set():
+					print('has been reading signal')
+				else:
+					print('Reading Signal')
+					readEvent.set()
 
 			elif s.startswith('stopread'):
-				readEvent.clear()
-				print('Stop Reading Signal')
+				if not readEvent.is_set():
+					print('not been reading signal')
+				else:
+					readEvent.clear()
+					print('Stop Reading Signal')
 
 			elif s.startswith('draw'):
 				if not readEvent.is_set(): 
@@ -268,19 +329,45 @@ def main():
 						plt.close('Signal')
 						print('Quit drawing')
 
-						## stop read signal
-						readEvent.clear()
-						print('Stop Reading Signal')
+						# ## stop read signal
+						# readEvent.clear()
+						# print('Stop Reading Signal')
 
 			elif s.startswith('set'):
+				if not readEvent.is_set(): 
+					print('readEvent has not set')
+					continue
 				try: 
 					deg = int(input('degrees: '))
-					if setphase(deg) is None:
+					if not setphase(deg):
 						print('{} is not a valid direction angle'.format(deg))
 
 				except ValueError:
 					print('invalid value')
 
+			elif s.startswith('sweep'):
+				if not readEvent.is_set(): 
+					print('readEvent has not set')
+					continue
+				for i in range(10,171,20):
+					setphase(i)
+					time.sleep(3)
+
+				## stop read
+				readEvent.clear()
+				print('Stop Reading Signal')
+
+
+			elif s.startswith('currentdir'):
+				print(direction)
+			elif s.startswith('info'):
+				for ind,val in directionInfo.items():
+					print('degrees: {}, (range, velocity): {}'.format(ind, val.RangeAndVelocity()))
+
+			elif s.startswith('resetinfo'):
+				for ind,val in directionInfo.items():
+					val.reset()
+				print('reset all direction data')
 
 			elif s == '':
 				pass

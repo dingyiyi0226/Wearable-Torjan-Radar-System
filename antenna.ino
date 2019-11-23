@@ -38,7 +38,7 @@ String s = "";
 int pos=0;
 int el1,el2,el3,el4;
 int phasePin[6];
-int tmp;
+int tmp,a;
 
 void loop() {
 
@@ -48,8 +48,17 @@ void loop() {
 	// tmp/=4;
 
  // 	Serial.print("d "+String(tmp)+'\n');
- 	
- 	Serial.print("d "+String(analogRead(IN[0]))+'\n');
+
+ 	// Serial.print("d ");
+ 	// Serial.print(analogRead(IN[0]));
+ 	Serial.print("d "+ String(analogRead(IN[0]))+'\n');
+
+ 	// Serial.print('\n')
+ 	// tmp+=1;
+ 	// if (tmp >400){
+ 	// 	Serial.println("");
+ 	// 	Serial.println("yea");tmp=0;
+ 	// }
  	// Serial.println(millis());
  	
 	if(Serial.available()){
@@ -75,7 +84,8 @@ void loop() {
 			setphase(2, el3);
 			setphase(3, el4);
 
-			Serial.println("w "+ String(el1)+' '+ String(el2)+' '+ String(el3)+' '+ String(el4));
+			// Serial.println("p "+ String(el1)+' '+ String(el2)+' '+ String(el3)+' '+ String(el4));
+			Serial.print("p \n");
 
 		} 
 	}
