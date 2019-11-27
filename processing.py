@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import serial
 import sys, os
 import time, threading
-from calphase import Phase
 
 class singleDirectionFMCW:
 	def __init__(self, bw, tm): ## tm(ms)
@@ -133,36 +132,11 @@ class Signal:
 	@property
 	def peakFreq(self):
 		return self._peakFreq
-	
-"""
-## adding a variable for threading.event
-class ReadEvent(threading.Event):
-	def __init__(self):
-		super().__init__()
-		self._didSet = False
-
-	def set(self): 
-		with self._cond:
-			self._flag = True
-			self._didSet = True
-			self._cond.notify_all()
-
-	def wait(self, timeout=None):
-		with self._cond:
-			signaled = self._flag
-			if not signaled:
-				signaled = self._cond.wait(timeout)
-			if self._didSet:
-				self._didSet = False
-				return signaled, True
-			else: 
-				return signaled, False
-"""
+		
 def read(ser,readEvent):
 
 	global signal
 	global direction
-	global setphaseIntervalFlag
 
 	while True:
 
@@ -176,19 +150,11 @@ def read(ser,readEvent):
 			# print('reading', s)
 
 			if s.startswith('d'):
-				if not setphaseIntervalFlag: 
-					# print('interval')
-					continue
 				try:
 					signal.readData(float(s[2:]))
-
-
 				except ValueError:
 					print('Value Error: ',s[2:])
 					continue
-			elif s.startswith('p'):
-				print('did set phase')
-				setphaseIntervalFlag = True
 
 			else: 
 				print('Read: ', s)
@@ -206,29 +172,6 @@ def writeTime(ser):
 		# print('writing',s)
 		time.sleep(2)
 
-def setphase(angle):
-	global ser
-	global phase
-
-	global setphaseIntervalFlag
-
-	global direction
-	global actdirection
-
-
-	if not phase.isValidDirection(angle): return False
-
-	direction = angle
-	actdirection = phase.getActualDirection(angle)
-	thetas = phase.getEachPhase2Pin(angle)
-
-	data = 'p '+str(thetas[0])+' '+str(thetas[1])+' '+str(thetas[2])+' '+str(thetas[3])
-	setphaseIntervalFlag = False
-	ser.write(data.encode())
-	print('setting:', angle)
-
-	return True
-
 
 def main():
 
@@ -236,13 +179,12 @@ def main():
 
 	global ser
 	global signal
-	global phase
+
 	global readEvent
 	global drawEvent
 
 	global directionInfo
 
-	global setphaseIntervalFlag
 	global direction
 	global actdirection
 
@@ -251,7 +193,13 @@ def main():
 	try:
 		## on mac
 		if(sys.platform.startswith('darwin')):
-			port = '/dev/tty.usbserial-1420'
+			ports = os.listdir('/dev/')
+			for i in ports:
+				if i[0:-2] == 'tty.usbserial-14':
+					port = i
+					break;
+			port = '/dev/' + port
+			
 		## on rpi
 		if(sys.platform.startswith('linux')):
 			ports = os.listdir('/dev/')
@@ -276,10 +224,8 @@ def main():
 	drawEvent = threading.Event()
 	signal = Signal(N = N,drawEvent = drawEvent)
 
+	direction = 90
 	directionInfo = { i: singleDirectionFMCW(100000,500) for i in range(10,171,5)}
-
-	phase = Phase()
-	setphaseIntervalFlag = True
 
 	readEvent = threading.Event()
 	# readEvent = ReadEvent()
@@ -289,9 +235,6 @@ def main():
 
 	# writeThread = threading.Thread(target = writeTime, args = [ser],daemon = True)
 	# writeThread.start()
-
-	setphase(90)
-	setphaseIntervalFlag = True
 
 	try:
 		prompt = ''
@@ -332,31 +275,6 @@ def main():
 						# ## stop read signal
 						# readEvent.clear()
 						# print('Stop Reading Signal')
-
-			elif s.startswith('set'):
-				if not readEvent.is_set(): 
-					print('readEvent has not set')
-					continue
-				try: 
-					deg = int(input('degrees: '))
-					if not setphase(deg):
-						print('{} is not a valid direction angle'.format(deg))
-
-				except ValueError:
-					print('invalid value')
-
-			elif s.startswith('sweep'):
-				if not readEvent.is_set(): 
-					print('readEvent has not set')
-					continue
-				for i in range(10,171,20):
-					setphase(i)
-					time.sleep(3)
-
-				## stop read
-				readEvent.clear()
-				print('Stop Reading Signal')
-
 
 			elif s.startswith('currentdir'):
 				print(direction)

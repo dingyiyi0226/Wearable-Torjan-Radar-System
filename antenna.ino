@@ -5,12 +5,20 @@ int IN[4] = {A4,A5,A6,A7};
 
 // Define antenna phase shifter
 
+// int ANTENNA[4][6] = {
+// 	{30,32,34,36,38,40},    // Antenna #0  {5,11,22,45,90,180} degree
+// 	{31,33,35,37,39,41},    // Antenna #1
+// 	{42,44,46,48,50,52},    // Antenna #2
+// 	{43,45,47,49,51,53}     // Antenna #3
+// };
+
 int ANTENNA[4][6] = {
-	{30,32,34,36,38,40},    // Antenna #0  {5,11,22,45,90,180} degree
-	{31,33,35,37,39,41},    // Antenna #1
-	{42,44,46,48,50,52},    // Antenna #2
-	{43,45,47,49,51,53}     // Antenna #3
+	{40,38,36,34,32,30},    // Antenna #0  {5,11,22,45,90,180} degree
+	{41,39,37,35,33,31},    // Antenna #1
+	{52,50,48,46,44,42},    // Antenna #2
+	{53,51,49,47,45,43}     // Antenna #3
 };
+
 
 void setphase(int ant, int pin){
 	if(ant>=4) {return;}
@@ -51,7 +59,9 @@ void loop() {
 
  	// Serial.print("d ");
  	// Serial.print(analogRead(IN[0]));
+ 	// String a = "ffff";
  	Serial.print("d "+ String(analogRead(IN[0]))+'\n');
+ 	// Serial.write("ff");
 
  	// Serial.print('\n')
  	// tmp+=1;
