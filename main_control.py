@@ -74,9 +74,30 @@ class Signal:
 		self._datacnt   = 0
 		self._datas     = [0. for i in range(self._N)]
 		self._x         = [i  for i in range(self._N)]
+		self._f         = []
 		self._fftDatas  = []
 		self._peakFreq  = 0
 		self._drawEvent = drawEvent
+		self._Samplingtime = 0.
+		
+	def setSamplingTime(self, time):
+		self._Samplingtime = time * 1e-6
+		self._f = [i/self._Samplingtime for i in self._x]
+
+	def readSerialData(self, data):
+		# print(data)
+		cnt = 0
+		lastind = -1
+		for ind, num in enumerate(data):
+			if num == ' ':
+				self._datas[cnt] = float(data[lastind+1:ind])
+				# print(cnt, self._datas[cnt])
+				lastind = ind
+				cnt+=1
+		self._N = cnt+1
+
+		self.fftData()
+
 
 	def readData(self,data):
 		# print('readData', data)
@@ -102,7 +123,8 @@ class Signal:
 
 		self._drawEvent.set()
 		# print(self._fftDatas)
-	def drawData(self, DCBlock = False, maxFreq = None):
+
+	def drawData(self, DCBlock : bool = False, maxFreq = None) -> bool:
 		if maxFreq is None: maxFreq = self._N//2
 		if maxFreq > self._N//2: 
 			print('maxFreq do not exceed N/2')
@@ -116,14 +138,19 @@ class Signal:
 
 		plt.subplot(212)
 		plt.xlabel('freq(Hz)')
-		if DCBlock:	plt.plot(self._x[1:maxFreq],self._fftDatas[1:maxFreq],'r')
-		else:       plt.plot(self._x[:maxFreq] ,self._fftDatas[:maxFreq],'r')
+		# if DCBlock:	plt.plot([ i / self._Samplingtime for i in self._x[1:maxFreq]], self._fftDatas[1:maxFreq],'r')
+		# else:       plt.plot([ i / self._Samplingtime for i in self._x[1:maxFreq]], self._fftDatas[:maxFreq], 'r')
+		# print( [ i / self._Samplingtime for i in self._x[1:maxFreq]] )
+		# print( self._f[1:maxFreq] )
+		if DCBlock:	plt.plot( self._f[1:maxFreq], self._fftDatas[1:maxFreq],'r')
+		else:       plt.plot( self._f[1:maxFreq], self._fftDatas[:maxFreq], 'r')
 
-		if maxFreq < 100:
-			plt.xticks(self._x[:maxFreq:maxFreq//15])
-		else: 
-			plt.xticks(self._x[:maxFreq:maxFreq//100*10])
-		# plt.ylim(0,20)
+		# if maxFreq < 100:
+		# 	plt.xticks(self._x[:maxFreq:maxFreq//15])
+		# else: 
+		# 	plt.xticks(self._x[:maxFreq:maxFreq//100*10])
+		plt.xticks(self._f[:maxFreq:maxFreq//100*10])
+		plt.yscale('log')
 		plt.pause(0.001)
 
 		self._drawEvent.clear()
@@ -146,12 +173,21 @@ def read(ser,readEvent):
 		# 	ser.reset_input_buffer()
 
 		try:
-			s = ser.readline().decode().strip()
+			s = ser.readline().decode()
 			# print('reading', s)
 
 			if s.startswith('d'):
 				try:
-					signal.readData(float(s[2:]))
+					# print('readSerialData ',s[2:])
+					signal.readSerialData(s[2:])
+					# signal.readData(float(s[2:]))
+				except ValueError:
+					print('Value Error: ',s[2:])
+					continue
+			elif s.startswith('t'):
+				try: 
+					signal.setSamplingTime(float(s[2:]))
+					# print('setSamplingTime ', s[2:])
 				except ValueError:
 					print('Value Error: ',s[2:])
 					continue
@@ -264,7 +300,8 @@ def main():
 						plt.figure('Signal')
 						while True:
 							drawEvent.wait()
-							if not signal.drawData(DCBlock = True, maxFreq = 20): 
+							if not signal.drawData(DCBlock = True, maxFreq = 100): 
+							# if not signal.drawData(DCBlock = True):
 								break
 							time.sleep(0.01)
 
