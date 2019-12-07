@@ -7,7 +7,8 @@ from scipy.signal import find_peaks
 
 ### FMCW Radar model
 class Signal:
-	def __init__(self, plotEvent):
+
+	def __init__(self):
 
 		## DATA
 
@@ -26,8 +27,7 @@ class Signal:
 
 		## PLOTTING 
 
-		self._plotEvent = plotEvent
-
+		self._plotEvent = threading.Event()
 
 	## DATA FUNCTIONS
 
@@ -45,24 +45,22 @@ class Signal:
 	def resetInfo(self):
 		self._info = {}
 
-
 	## SIGNAL PROCESSING FUNCTIONS
 
 	def setSamplingTime(self, time):
 		self._samplingTime = time * 1e-6
-		self._freqAxis = [i/self._samplingTime for i in self._timeAxis]
+		self._freqAxis     = [i/self._samplingTime for i in self._timeAxis]
 
 	def readSerialData(self, data):
 		# print(data)
-		self._datas = [ float(i) for i in data.split() ]
+		self._datas      = [ float(i) for i in data.split() ]
 		self._dataLength = len(self._datas)
-		self._timeAxis = [ i for i in range(self._dataLength)]
+		self._timeAxis   = [ i for i in range(self._dataLength)]
 
 		self._fftData()
 
 	def _fftData(self):
-
-		fftdata_o = abs(np.fft.fft(self._datas))
+		fftdata_o      = abs(np.fft.fft(self._datas))
 		self._fftDatas = [ i*2/self._dataLength for i in fftdata_o ]
 		self._peakFreqs, _ = find_peaks(self._fftDatas, height = 10)
 
@@ -72,14 +70,15 @@ class Signal:
 	def _calculateInfo(self):
 		pass
 
-
-
 	## PLOTTING FUNCTIONS
+
+	@property
+	def plotEvent(self):
+		return self._plotEvent
 
 	### only plot data with frequencies in (0, maxFreq) 
 	def plotData(self, DCBlock : bool = False, maxFreq = None) -> bool:
-
-		## convert maxFreq to corresponding index (maxIndex)
+		### convert maxFreq to corresponding index (maxIndex)
 		maxIndex = self._dataLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
 
 		if maxIndex > self._dataLength//2: 
@@ -103,18 +102,13 @@ class Signal:
 
 		# plt.yscale('log')
 		plt.pause(0.001)
-
 		self._plotEvent.clear()
 		return True
-		
-def read():
 
-	global ser
-	global readEvent
-	global signal
+### read signal at anytime in another thread
+def read(ser, signal, readEvent):
 
 	while True:
-
 		readEvent.wait()   
 		try:
 			s = ser.readline().decode()
@@ -139,27 +133,9 @@ def read():
 
 		time.sleep(0.001)
 
-### write time info to serial (for debugging)
-def writeTime(ser):
-	while True:
-		s = time.asctime()
-		b = ser.write(s.encode())
-		# print('writing',s)
-		time.sleep(2)
-
-
 def main():
 
-	## global variebles
-
-	global ser
-	global signal
-
-	global readEvent
-	global plotEvent
-
 	## ------------- Port Connecting ------------- ##
-
 	try:
 		## on mac
 		if(sys.platform.startswith('darwin')):
@@ -188,22 +164,20 @@ def main():
 
 	## ------------------------------------------ ##
 
-	plotEvent = threading.Event()
-	signal = Signal(plotEvent = plotEvent)
+	### initialize the model 
+	signal = Signal()
 
-	readEvent = threading.Event()
-
-	readThread = threading.Thread(target = read, daemon = True)
+	### start reading in another thread but block by readEvent
+	readEvent  = threading.Event()
+	readThread = threading.Thread(target = read, args = [ser, signal, readEvent], daemon = True)
 	readThread.start()
-
-	# writeThread = threading.Thread(target = writeTime, args = [ser],daemon = True)
-	# writeThread.start()
 
 	try:
 		prompt = ''
 		while True: 
 			s = input("commands: " + prompt ).strip()
-			if s.startswith('q'): break
+
+			if s == '': pass
 
 			elif s.startswith('read'):
 				if readEvent.is_set():
@@ -226,7 +200,7 @@ def main():
 					try:
 						plt.figure('Signal')
 						while True:
-							plotEvent.wait()
+							signal.plotEvent.wait()
 							if not signal.plotData(DCBlock = True, maxFreq = 300): 
 							# if not signal.plotData(DCBlock = True):
 								plt.close('Signal')
@@ -263,10 +237,8 @@ def main():
 				signal.resetInfo()
 				print('reset all direction data')
 
-			elif s == '':
-				pass
-			else:
-				print('Undefined Command')
+			elif s.startswith('q'): break		
+			else: print('Undefined Command')
 
 	except KeyboardInterrupt: 
 		pass
