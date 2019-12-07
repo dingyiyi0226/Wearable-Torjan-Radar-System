@@ -3,204 +3,143 @@ import matplotlib.pyplot as plt
 import serial
 import sys, os
 import time, threading
+from scipy.signal import find_peaks
 
-class singleDirectionFMCW:
-	def __init__(self, bw, tm): ## tm(ms)
-		self._bw = bw
-		self._tm = tm
-		self._slope = self._bw/self._tm*2
-
-		self._realTimeFreq = []
-
-		self._fb1 = 0
-		self._fb2 = 0
-
-		self._beatFreq = self._slope*0.0001  ## assume travel time = 0.1us
-		self._dopplerFreq = 0
-
-		self._range = 0
-		self._velocity = 0
-
-	def setRealTimeFreq(self,freq):
-		self._realTimeFreq.append(freq)
-
-	def RangeAndVelocity(self):
-		if not self._realTimeFreq: return None
-		# print(self._realTimeFreq)
-		self._calculateFreq()
-		self._calculateInfo()
-		return self._range, self._velocity
-
-	def reset(self):
-		self._realTimeFreq = []
-		self._fb1 = 0
-		self._fb2 = 0
-		self._dopplerFreq = 0
-		self._range = 0
-		self._velocity = 0
-
-	### setting beatFreq and doppler Freq from realTimeFreq
-	def _calculateFreq(self):
-		diff = np.abs(np.diff(self._realTimeFreq))
-		change = []
-		for index, value in enumerate(diff):
-			if value > 1: change.append(index)
-		# if len(change) > 1: 
-		# 	print("freq2info Error", diff)
-		if change:
-			self._fb1 = sum(self._realTimeFreq[:change[0]+1])/(change[0]+1)
-			self._fb2 = sum(self._realTimeFreq[change[0]+1:])/len(self._realTimeFreq[change[0]+1:])
-		else: 
-			self._fb2 = self._fb1 = sum(self._realTimeFreq)/len(self._realTimeFreq)
-
-		ftmp1 = (self._fb1 + self._fb2)/2
-		ftmp2 = abs(self._fb1 - self._fb2)/2
-
-		if abs(ftmp1 - self._beatFreq) < abs(ftmp2 - self._beatFreq):
-			self._beatFreq = ftmp1
-			self._dopplerFreq = ftmp2
-		else:
-			self._beatFreq = ftmp2
-			self._dopplerFreq = ftmp1
-
-	### calculating range and velocity from beatFreq and doppler Freq
-	def _calculateInfo(self):
-		self._range = self._beatFreq * 3e8 / self._slope / 2
-		self._velocity = self._dopplerFreq * 3e8 / 5.8e9 / 2
-
+### FMCW Radar model
 class Signal:
-	def __init__(self, N, drawEvent):
-		self._N = N
-		self._datacnt   = 0
-		self._datas     = [0. for i in range(self._N)]
-		self._x         = [i  for i in range(self._N)]
-		self._f         = []
-		self._fftDatas  = []
-		self._peakFreq  = 0
-		self._drawEvent = drawEvent
-		self._Samplingtime = 0.
-		
+	def __init__(self, plotEvent):
+
+		## DATA
+
+		self._info = {} ## info of each direction: { angle: [(range, velo)] }
+		self._direction  = 90  ## operating direction , at 90 degree by default
+
+		## SIGNAL PROCESSING
+
+		self._dataLength = 0   ## length of received data , fft data
+		self._datas      = []  ## received data
+		self._timeAxis   = []  ## time axis of received data
+		self._fftDatas   = []  ## fft data
+		self._freqAxis   = []  ## freq axis of fft data
+		self._samplingTime = 0.   ## in mircosecond
+		self._peakFreqs  = []  ## peak freq in fftdata
+
+		## PLOTTING 
+
+		self._plotEvent = plotEvent
+
+
+	## DATA FUNCTIONS
+
+	@property
+	def direction(self):
+		return self._direction
+
+	@property
+	def info(self):
+		return self._info	
+
+	def infoAtDirection(self, key):
+		return self._info.get(key)
+
+	def resetInfo(self):
+		self._info = {}
+
+
+	## SIGNAL PROCESSING FUNCTIONS
+
 	def setSamplingTime(self, time):
-		self._Samplingtime = time * 1e-6
-		self._f = [i/self._Samplingtime for i in self._x]
+		self._samplingTime = time * 1e-6
+		self._freqAxis = [i/self._samplingTime for i in self._timeAxis]
 
 	def readSerialData(self, data):
 		# print(data)
-		cnt = 0
-		lastind = -1
-		for ind, num in enumerate(data):
-			if num == ' ':
-				self._datas[cnt] = float(data[lastind+1:ind])
-				# print(cnt, self._datas[cnt])
-				lastind = ind
-				cnt+=1
-		self._N = cnt+1
+		self._datas = [ float(i) for i in data.split() ]
+		self._dataLength = len(self._datas)
+		self._timeAxis = [ i for i in range(self._dataLength)]
 
-		self.fftData()
+		self._fftData()
 
+	def _fftData(self):
 
-	def readData(self,data):
-		# print('readData', data)
-		self._datas[self._datacnt] = data
-		if self._datacnt < self._N-1:
-			self._datacnt+=1
-		else:
-			## receive N datas
-			self._datacnt=0
-			# print('readend')
-			self.fftData()
-			# print('fftend')
-
-	def fftData(self):
-		global directionInfo
-		global direction
 		fftdata_o = abs(np.fft.fft(self._datas))
-		self._fftDatas = [ i*2/self._N for i in fftdata_o ]
-		self._peakFreq = max(self._fftDatas[1:])  ## block DC
+		self._fftDatas = [ i*2/self._dataLength for i in fftdata_o ]
+		self._peakFreqs, _ = find_peaks(self._fftDatas, height = 10)
 
-		# print('setRealTimeFreq: ', direction)
-		directionInfo[direction].setRealTimeFreq(self._peakFreq)
+		self._calculateInfo()
+		self._plotEvent.set()
 
-		self._drawEvent.set()
-		# print(self._fftDatas)
+	def _calculateInfo(self):
+		pass
 
-	def drawData(self, DCBlock : bool = False, maxFreq = None) -> bool:
-		if maxFreq is None: maxFreq = self._N//2
-		if maxFreq > self._N//2: 
-			print('maxFreq do not exceed N/2')
-			self._drawEvent.clear()
+
+
+	## PLOTTING FUNCTIONS
+
+	### only plot data with frequencies in (0, maxFreq) 
+	def plotData(self, DCBlock : bool = False, maxFreq = None) -> bool:
+
+		## convert maxFreq to corresponding index (maxIndex)
+		maxIndex = self._dataLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
+
+		if maxIndex > self._dataLength//2: 
+			print('maxFreq do not exceed ', int(self._dataLength//2 / self._samplingTime))
+			self._plotEvent.clear()
 			return False
 		
 		plt.clf()
 
 		plt.subplot(211)
-		plt.plot(self._x,self._datas)
+		plt.plot(self._timeAxis,self._datas)
 
 		plt.subplot(212)
 		plt.xlabel('freq(Hz)')
-		# if DCBlock:	plt.plot([ i / self._Samplingtime for i in self._x[1:maxFreq]], self._fftDatas[1:maxFreq],'r')
-		# else:       plt.plot([ i / self._Samplingtime for i in self._x[1:maxFreq]], self._fftDatas[:maxFreq], 'r')
-		# print( [ i / self._Samplingtime for i in self._x[1:maxFreq]] )
-		# print( self._f[1:maxFreq] )
-		if DCBlock:	plt.plot( self._f[1:maxFreq], self._fftDatas[1:maxFreq],'r')
-		else:       plt.plot( self._f[1:maxFreq], self._fftDatas[:maxFreq], 'r')
 
-		# if maxFreq < 100:
-		# 	plt.xticks(self._x[:maxFreq:maxFreq//15])
-		# else: 
-		# 	plt.xticks(self._x[:maxFreq:maxFreq//100*10])
-		plt.xticks(self._f[:maxFreq:maxFreq//100*10])
-		plt.yscale('log')
+		if DCBlock:	plt.plot( self._freqAxis[1:maxIndex], self._fftDatas[1:maxIndex],'r')
+		else:       plt.plot( self._freqAxis[1:maxIndex], self._fftDatas[0:maxIndex],'r')
+
+		plt.plot([ self._freqAxis[i] for i in self._peakFreqs if i < maxIndex ],
+				 [ self._fftDatas[i] for i in self._peakFreqs if i < maxIndex ], 'x')
+
+		# plt.yscale('log')
 		plt.pause(0.001)
 
-		self._drawEvent.clear()
+		self._plotEvent.clear()
 		return True
-
-	@property
-	def peakFreq(self):
-		return self._peakFreq
 		
-def read(ser,readEvent):
+def read():
 
+	global ser
+	global readEvent
 	global signal
-	global direction
 
 	while True:
 
-		readEvent.wait()
-		# _, didset = readEvent.wait()
-		# if didset:
-		# 	ser.reset_input_buffer()
-
+		readEvent.wait()   
 		try:
 			s = ser.readline().decode()
-			# print('reading', s)
-
 			if s.startswith('d'):
-				try:
-					# print('readSerialData ',s[2:])
-					signal.readSerialData(s[2:])
-					# signal.readData(float(s[2:]))
-				except ValueError:
-					print('Value Error: ',s[2:])
-					continue
+				# print('readSerialData ',s[2:])
+				signal.readSerialData(s[2:])
+
 			elif s.startswith('t'):
+				# print('setSamplingTime ', s[2:])
 				try: 
 					signal.setSamplingTime(float(s[2:]))
-					# print('setSamplingTime ', s[2:])
 				except ValueError:
 					print('Value Error: ',s[2:])
 					continue
 
 			else: 
 				print('Read: ', s)
-				pass
 
 		except UnicodeDecodeError:
 			print('UnicodeDecodeError')
 			continue
+
 		time.sleep(0.001)
 
+### write time info to serial (for debugging)
 def writeTime(ser):
 	while True:
 		s = time.asctime()
@@ -217,12 +156,7 @@ def main():
 	global signal
 
 	global readEvent
-	global drawEvent
-
-	global directionInfo
-
-	global direction
-	global actdirection
+	global plotEvent
 
 	## ------------- Port Connecting ------------- ##
 
@@ -248,25 +182,18 @@ def main():
 		ser = serial.Serial(port)
 		print('Successfully open port: ', ser)
 
-	except serial.SerialException:
-		print('Cannot open port: ', port)
+	except (serial.SerialException, UnboundLocalError):
+		print('Cannot open port')
 		sys.exit()
 
 	## ------------------------------------------ ##
 
-	## the Number of sampling data 
-	N = 500
-
-	drawEvent = threading.Event()
-	signal = Signal(N = N,drawEvent = drawEvent)
-
-	direction = 90
-	directionInfo = { i: singleDirectionFMCW(100000,500) for i in range(10,171,5)}
+	plotEvent = threading.Event()
+	signal = Signal(plotEvent = plotEvent)
 
 	readEvent = threading.Event()
-	# readEvent = ReadEvent()
 
-	readThread = threading.Thread(target = read, args = [ser,readEvent], daemon = True)
+	readThread = threading.Thread(target = read, daemon = True)
 	readThread.start()
 
 	# writeThread = threading.Thread(target = writeTime, args = [ser],daemon = True)
@@ -275,7 +202,7 @@ def main():
 	try:
 		prompt = ''
 		while True: 
-			s = input("commands: "+prompt)
+			s = input("commands: " + prompt ).strip()
 			if s.startswith('q'): break
 
 			elif s.startswith('read'):
@@ -299,9 +226,10 @@ def main():
 					try:
 						plt.figure('Signal')
 						while True:
-							drawEvent.wait()
-							if not signal.drawData(DCBlock = True, maxFreq = 100): 
-							# if not signal.drawData(DCBlock = True):
+							plotEvent.wait()
+							if not signal.plotData(DCBlock = True, maxFreq = 300): 
+							# if not signal.plotData(DCBlock = True):
+								plt.close('Signal')
 								break
 							time.sleep(0.01)
 
@@ -314,14 +242,25 @@ def main():
 						# print('Stop Reading Signal')
 
 			elif s.startswith('currentdir'):
-				print(direction)
+				print('current direction: ', signal.direction)
+
+			elif s.startswith('infoat'):
+				try:
+					ss = input('direction: ')
+					info = signal.infoAtDirection(float(ss))
+					if info is None:
+						print('{} is not a valid direction'.format(ss))
+					else:
+						print('direction: {}, (range, velocity): {}'.format(ss, info))
+				except ValueError:
+					print('{} is not a valid direction'.format(ss))
+
 			elif s.startswith('info'):
-				for ind,val in directionInfo.items():
-					print('degrees: {}, (range, velocity): {}'.format(ind, val.RangeAndVelocity()))
+				for ind,val in signal.info.items():
+					print('direction: {}, (range, velocity): {}'.format(ind, val))
 
 			elif s.startswith('resetinfo'):
-				for ind,val in directionInfo.items():
-					val.reset()
+				signal.resetInfo()
 				print('reset all direction data')
 
 			elif s == '':
