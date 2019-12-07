@@ -3,27 +3,27 @@ import matplotlib.pyplot as plt
 import serial
 import sys, os
 import time, threading
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, peak_prominences
 
 ### FMCW Radar model
-class Signal:
+class FMCWRadar:
 
 	def __init__(self):
 
 		## DATA
 
 		self._info = {} ## info of each direction: { angle: [(range, velo)] }
-		self._direction  = 90  ## operating direction , at 90 degree by default
+		self._direction = 90  ## operating direction , at 90 degree by default
 
 		## SIGNAL PROCESSING
 
-		self._dataLength = 0   ## length of received data , fft data
-		self._datas      = []  ## received data
-		self._timeAxis   = []  ## time axis of received data
-		self._fftDatas   = []  ## fft data
-		self._freqAxis   = []  ## freq axis of fft data
+		self._signalLength = 0   ## length of received data , fft data
+		self._signal       = []  ## received data
+		self._timeAxis     = []  ## time axis of received data
+		self._fftSignal    = []  ## fft data
+		self._freqAxis     = []  ## freq axis of fft data
 		self._samplingTime = 0.   ## in mircosecond
-		self._peakFreqs  = []  ## peak freq in fftdata
+		self._peakFreqs    = []  ## peak freq in fftdata
 
 		## PLOTTING 
 
@@ -47,22 +47,29 @@ class Signal:
 
 	## SIGNAL PROCESSING FUNCTIONS
 
-	def setSamplingTime(self, time):
+	def resetSignal(self):
+		self._signal = []
+
+	def readSignal(self, signal):
+		# print(signal)
+		try:
+			self._signal.extend([float(i) for i in signal.split()])
+		except ValueError:
+			self.resetSignal()
+
+	def endReadSignal(self, time):
+		if not self._signal: return
+		self._signalLength = len(self._signal)
+		self._timeAxis     = [ i for i in range(self._signalLength)]
 		self._samplingTime = time * 1e-6
 		self._freqAxis     = [i/self._samplingTime for i in self._timeAxis]
 
-	def readSerialData(self, data):
-		# print(data)
-		self._datas      = [ float(i) for i in data.split() ]
-		self._dataLength = len(self._datas)
-		self._timeAxis   = [ i for i in range(self._dataLength)]
+		self._fft()
 
-		self._fftData()
-
-	def _fftData(self):
-		fftdata_o      = abs(np.fft.fft(self._datas))
-		self._fftDatas = [ i*2/self._dataLength for i in fftdata_o ]
-		self._peakFreqs, _ = find_peaks(self._fftDatas, height = 10)
+	def _fft(self):
+		fftSignal_o     = abs(np.fft.fft(self._signal))
+		self._fftSignal = [ i*2/self._signalLength for i in fftSignal_o ]
+		self._peakFreqs, _ = find_peaks(self._fftSignal, height = 10)
 
 		self._calculateInfo()
 		self._plotEvent.set()
@@ -76,50 +83,53 @@ class Signal:
 	def plotEvent(self):
 		return self._plotEvent
 
-	### only plot data with frequencies in (0, maxFreq) 
-	def plotData(self, DCBlock : bool = False, maxFreq = None) -> bool:
+	### only plot signal with frequencies in (0, maxFreq) 
+	def plotSignal(self, DCBlock : bool = False, maxFreq = None) -> bool:
+		if not self._signal: return False
 		### convert maxFreq to corresponding index (maxIndex)
-		maxIndex = self._dataLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
+		maxIndex = self._signalLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
 
-		if maxIndex > self._dataLength//2: 
-			print('maxFreq do not exceed ', int(self._dataLength//2 / self._samplingTime))
+		if maxIndex > self._signalLength//2: 
+			print('maxFreq do not exceed ', int(self._signalLength//2 / self._samplingTime))
 			self._plotEvent.clear()
 			return False
 		
 		plt.clf()
 
 		plt.subplot(211)
-		plt.plot(self._timeAxis,self._datas)
+		plt.plot(self._timeAxis,self._signal)
 
 		plt.subplot(212)
 		plt.xlabel('freq(Hz)')
 
-		if DCBlock:	plt.plot( self._freqAxis[1:maxIndex], self._fftDatas[1:maxIndex],'r')
-		else:       plt.plot( self._freqAxis[1:maxIndex], self._fftDatas[0:maxIndex],'r')
+		if DCBlock:	plt.plot( self._freqAxis[1:maxIndex], self._fftSignal[1:maxIndex],'r')
+		else:       plt.plot( self._freqAxis[1:maxIndex], self._fftSignal[0:maxIndex],'r')
 
-		plt.plot([ self._freqAxis[i] for i in self._peakFreqs if i < maxIndex ],
-				 [ self._fftDatas[i] for i in self._peakFreqs if i < maxIndex ], 'x')
+		plt.plot([ self._freqAxis[i]  for i in self._peakFreqs if i < maxIndex ],
+				 [ self._fftSignal[i] for i in self._peakFreqs if i < maxIndex ], 'x')
 
 		# plt.yscale('log')
 		plt.pause(0.001)
 		self._plotEvent.clear()
 		return True
 
-### read signal at anytime in another thread
-def read(ser, signal, readEvent):
-
+### read signal at anytime in other thread
+def read(ser, radar, readEvent):
 	while True:
 		readEvent.wait()   
 		try:
 			s = ser.readline().decode()
-			if s.startswith('d'):
-				# print('readSerialData ',s[2:])
-				signal.readSerialData(s[2:])
+			if s.startswith('i'):
+				radar.resetSignal()
 
-			elif s.startswith('t'):
-				# print('setSamplingTime ', s[2:])
+			elif s.startswith('d'):
+				# print('readSignal ',s[2:])
+				radar.readSignal(signal = s[2:])
+
+			elif s.startswith('e'):
+				# print('endReadSignal ', s[2:])
 				try: 
-					signal.setSamplingTime(float(s[2:]))
+					radar.endReadSignal(time = float(s[2:]))
 				except ValueError:
 					print('Value Error: ',s[2:])
 					continue
@@ -133,9 +143,8 @@ def read(ser, signal, readEvent):
 
 		time.sleep(0.001)
 
-def main():
-
-	## ------------- Port Connecting ------------- ##
+### find the port name
+def port() -> str:
 	try:
 		## on mac
 		if(sys.platform.startswith('darwin')):
@@ -145,7 +154,6 @@ def main():
 					port = i
 					break;
 			port = '/dev/' + port
-			
 		## on rpi
 		if(sys.platform.startswith('linux')):
 			ports = os.listdir('/dev/')
@@ -155,21 +163,23 @@ def main():
 					break;
 			port = '/dev/' + port
 
-		ser = serial.Serial(port)
-		print('Successfully open port: ', ser)
+	except UnboundLocalError:
+		sys.exit('Cannot open port')
 
-	except (serial.SerialException, UnboundLocalError):
-		print('Cannot open port')
-		sys.exit()
+	return port
 
-	## ------------------------------------------ ##
+def main():
+
+	### Port Connecting
+	ser = serial.Serial(port())
+	print('Successfully open port: ', ser)
 
 	### initialize the model 
-	signal = Signal()
+	radar = FMCWRadar()
 
 	### start reading in another thread but block by readEvent
 	readEvent  = threading.Event()
-	readThread = threading.Thread(target = read, args = [ser, signal, readEvent], daemon = True)
+	readThread = threading.Thread(target = read, args = [ser, radar, readEvent], daemon = True)
 	readThread.start()
 
 	try:
@@ -200,9 +210,9 @@ def main():
 					try:
 						plt.figure('Signal')
 						while True:
-							signal.plotEvent.wait()
-							if not signal.plotData(DCBlock = True, maxFreq = 300): 
-							# if not signal.plotData(DCBlock = True):
+							radar.plotEvent.wait()
+							if not radar.plotSignal(DCBlock = True, maxFreq = 300): 
+							# if not radar.plotSignal(DCBlock = True):
 								plt.close('Signal')
 								break
 							time.sleep(0.01)
@@ -211,17 +221,13 @@ def main():
 						plt.close('Signal')
 						print('Quit drawing')
 
-						# ## stop read signal
-						# readEvent.clear()
-						# print('Stop Reading Signal')
-
 			elif s.startswith('currentdir'):
-				print('current direction: ', signal.direction)
+				print('current direction:', radar.direction)
 
 			elif s.startswith('infoat'):
 				try:
 					ss = input('direction: ')
-					info = signal.infoAtDirection(float(ss))
+					info = radar.infoAtDirection(float(ss))
 					if info is None:
 						print('{} is not a valid direction'.format(ss))
 					else:
@@ -230,11 +236,11 @@ def main():
 					print('{} is not a valid direction'.format(ss))
 
 			elif s.startswith('info'):
-				for ind,val in signal.info.items():
+				for ind,val in radar.info.items():
 					print('direction: {}, (range, velocity): {}'.format(ind, val))
 
 			elif s.startswith('resetinfo'):
-				signal.resetInfo()
+				radar.resetInfo()
 				print('reset all direction data')
 
 			elif s.startswith('q'): break		
