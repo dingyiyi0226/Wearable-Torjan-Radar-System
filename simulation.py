@@ -48,7 +48,7 @@ def main():
     plt.xlim(0, SIMULATION_TIME)
 
     # print(receivedSignal.shape)
-    fftsignal = np.fft.fft(receivedSignal)
+    fftsignal = abs(np.fft.fft(receivedSignal))
 
     # print('fftsignal length ',fftsignal.shape)
     fftDatas = [ i*2/len(fftsignal) for i in fftsignal ]
