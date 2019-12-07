@@ -26,12 +26,12 @@ def setSpec():
     timeaxis = np.linspace(0, SIMULATION_TIME, SIMULATION_POINTS)
 
     coshigh  = np.cos(np.linspace(0, 2 * np.pi * SIMULATION_TIME * HIGH_FREQUENCY, SIMULATION_POINTS, dtype=np.float32))
-    coslow   = np.cos(np.linspace(0, 2 * np.pi * SIMULATION_TIME * LOW_FREQUENCY, SIMULATION_POINTS, dtype=np.float32))
+    coslow   = np.cos(np.linspace(0, 2 * np.pi * SIMULATION_TIME *  LOW_FREQUENCY, SIMULATION_POINTS, dtype=np.float32))
 
-    mask = np.tile(np.array([1, 0], dtype=np.uint8).repeat(SQUARE_WAVE_WIDTH), reps=int(SIMULATION_TIME / MODULATION_DURATION))
+    mask1 = np.tile(np.array([1, 0], dtype=np.uint8).repeat(SQUARE_WAVE_WIDTH), reps=int(SIMULATION_TIME / MODULATION_DURATION))
     mask2 = np.tile(np.array([0, 1], dtype=np.uint8).repeat(SQUARE_WAVE_WIDTH), reps=int(SIMULATION_TIME / MODULATION_DURATION))
     
-    signal = coslow * mask + coshigh * mask2
+    signal = coslow * mask1 + coshigh * mask2
 
     signal =  signal[::int(SIMULATION_POINTS / (SIMULATION_TIME * SAMPLE_FREQUENCY))]
     print('sampling point', (SIMULATION_TIME * SAMPLE_FREQUENCY))
