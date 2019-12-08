@@ -3,29 +3,37 @@ import matplotlib.pyplot as plt
 import serial
 import sys, os
 import time, threading
-from scipy.signal import find_peaks, peak_prominences
+from scipy.signal import find_peaks
 
-### FMCW Radar model
+### FMCW Radar model for each freqency
 class FMCWRadar:
 
-	def __init__(self):
+	def __init__(self, freq, slope):
+
+		## SIGNAL IDENTITY
+
+		self._freq  = freq   ## the operation frequency
+		self._slope = slope  ## the slope of transmitting signal (Hz/s)
 
 		## DATA
 
-		self._info = {} ## info of each direction: { angle: [(range, velo)] }
-		self._direction = 90  ## operating direction , at 90 degree by default
+		self._info = {}      ## info of each direction: { angle: [(range, velo)] }
+		self._direction = 90 ## operating direction , at 90 degree by default
 
 		## SIGNAL PROCESSING
 
 		self._signalLength = 0   ## length of received data , fft data
 		self._signal       = []  ## received data
+		self._resetFlag = False  ## reset signal flag
 		self._timeAxis     = []  ## time axis of received data
 		self._fftSignal    = []  ## fft data
 		self._freqAxis     = []  ## freq axis of fft data
-		self._samplingTime = 0.   ## in mircosecond
+		self._samplingTime = 0.  ## in mircosecond
 		self._peakFreqs    = []  ## peak freq in fftdata
+		self._objectFreqs  = []  ## [(f1,f2), (f3,f4), ... ] two freqs cause by an object
+								 ## the tuple contain only one freq iff the object is stationary
 
-		## PLOTTING 
+		## PLOTTING
 
 		self._plotEvent = threading.Event()
 
@@ -48,15 +56,21 @@ class FMCWRadar:
 	## SIGNAL PROCESSING FUNCTIONS
 
 	def resetSignal(self):
-		self._signal = []
+		self._resetFlag = True
 
 	def readSignal(self, signal):
 		# print(signal)
 		try:
-			self._signal.extend([float(i) for i in signal.split()])
-		except ValueError:
-			self.resetSignal()
+			if self._resetFlag:
+				self._signal = []
+				self._resetFlag = False
 
+			self._signal.extend([float(i) for i in signal.split()])
+			
+		except ValueError:
+			print('ValueError')
+
+	### update some varieble at the end of the signal and start signal processing
 	def endReadSignal(self, time):
 		if not self._signal: return
 		self._signalLength = len(self._signal)
@@ -64,18 +78,44 @@ class FMCWRadar:
 		self._samplingTime = time * 1e-6
 		self._freqAxis     = [i/self._samplingTime for i in self._timeAxis]
 
+		self._signalProcessing()
+
+	def _signalProcessing(self):
 		self._fft()
+		# self._findFreqPair()
+		# self._calculateInfo()
 
 	def _fft(self):
 		fftSignal_o     = abs(np.fft.fft(self._signal))
 		self._fftSignal = [ i*2/self._signalLength for i in fftSignal_o ]
 		self._peakFreqs, _ = find_peaks(self._fftSignal, height = 10)
-
-		self._calculateInfo()
 		self._plotEvent.set()
 
-	def _calculateInfo(self):
+	### make the freqs in peakFreq with same intensity into pairs
+	def _findFreqPair(self):
+		## TODO
+		## Update _objectFreqs from _peakFreqs
 		pass
+
+	### calculate range and velocity of every object from _objectFreqs
+	def _calculateInfo(self):
+		objRange = 0.
+		objVelo  = 0.
+		for tup in self._objectFreqs:
+			if len(tup) == 1:
+				fb = tup[0]
+				objRange = fb / self._slope * 3e8 / 2
+				objVelo  = 0.
+			else:
+				fb =    (tup[0] + tup[1]) / 2
+				fd = abs(tup[0] - tup[1]) / 2
+				objRange = fb / self._slope * 3e8 / 2
+				objVelo  = fd / self._freq  * 3e8 / 2
+
+			if self._info.has_key(self._direction):
+				self._info[self._direction] += (objRange, objVelo)
+			else:
+				self._info[self._direction] = [(objRange, objVelo)]
 
 	## PLOTTING FUNCTIONS
 
@@ -86,7 +126,7 @@ class FMCWRadar:
 	### only plot signal with frequencies in (0, maxFreq) 
 	def plotSignal(self, DCBlock : bool = False, maxFreq = None) -> bool:
 		if not self._signal: return False
-		### convert maxFreq to corresponding index (maxIndex)
+		## convert maxFreq to corresponding index (maxIndex)
 		maxIndex = self._signalLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
 
 		if maxIndex > self._signalLength//2: 
@@ -117,6 +157,7 @@ class FMCWRadar:
 def read(ser, radar, readEvent):
 	while True:
 		readEvent.wait()   
+		## maybe have to reset buffer
 		try:
 			s = ser.readline().decode()
 			if s.startswith('i'):
@@ -175,7 +216,7 @@ def main():
 	print('Successfully open port: ', ser)
 
 	### initialize the model 
-	radar = FMCWRadar()
+	radar = FMCWRadar(freq = 58e8 , slope = 1e4/5e-4)  ## operating at 5.8GHz, slope = 10kHz/0.5ms
 
 	### start reading in another thread but block by readEvent
 	readEvent  = threading.Event()
@@ -214,6 +255,7 @@ def main():
 							if not radar.plotSignal(DCBlock = True, maxFreq = 300): 
 							# if not radar.plotSignal(DCBlock = True):
 								plt.close('Signal')
+								print('no signal')
 								break
 							time.sleep(0.01)
 
