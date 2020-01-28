@@ -232,7 +232,7 @@ def read(ser, radar, readEvent):
 
         time.sleep(0.001)
 
-def readSimSignal(filename, samFreq, radar, readEvent):
+def readSimSignal(filename, samFreq, samTime, radar, readEvent):
     """without connecting to Arduino, read signal from data"""
     
     simSignal = []
@@ -247,20 +247,18 @@ def readSimSignal(filename, samFreq, radar, readEvent):
             else:
                 simSignal.append(float(data[1]))
 
-    simSampTime = 6e-4  ## (sec, change this var for frequency resolution)
-    sig = []
-
+    samSig = []
     i=1
     while True:
         readEvent.wait()
-        if i % int(simSampTime*samFreq) != 0:
-            sig.append(simSignal[(int(i*simSampFreq/samFreq) % len(simSignal))])
+        if i % int(samTime*samFreq) != 0:
+            samSig.append(simSignal[(int(i*simSampFreq/samFreq) % len(simSignal))])
             i+=1
         else:
-            radar.readSignal(signal=sig)
+            radar.readSignal(signal=samSig)
 
-            radar.endReadSignal(time=simSampTime*1e6 )
-            sig = []
+            radar.endReadSignal(time=samTime*1e6 )
+            samSig = []
             time.sleep(0.001)
 
 def port() -> str:
@@ -306,7 +304,8 @@ def main():
     # readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
 
     ## simulation version
-    readThread = threading.Thread(target=readSimSignal, args=['150', 1e6, radar, readEvent], daemon=True)
+    readThread = threading.Thread(target=readSimSignal, daemon=True,
+        kwargs={'filename': '150', 'samFreq':1e6, 'samTime':3e-4, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
 
