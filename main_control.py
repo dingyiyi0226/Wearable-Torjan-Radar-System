@@ -8,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+import csv
+
 class FMCWRadar:
     """FMCW Radar model for each freqency"""
 
@@ -64,24 +66,21 @@ class FMCWRadar:
 
     def readSignal(self, signal):
         # print(signal)
-        try:
-            if self._resetFlag:
-                self._signal = []
-                self._resetFlag = False
 
-            self._signal.extend([float(i) for i in signal.split()])
+        if self._resetFlag:
+            self._signal = []
+            self._resetFlag = False
 
-        except ValueError:
-            print('ValueError')
+        self._signal.extend(signal)
 
     def endReadSignal(self, time):
         """update some variable at the end of the signal and start signal processing"""
 
         if not self._signal: return
         self._signalLength = len(self._signal)
-        self._timeAxis     = [i for i in range(self._signalLength)]
         self._samplingTime = time * 1e-6
-        self._freqAxis     = [i/self._samplingTime for i in self._timeAxis]
+        self._timeAxis = [i*self._samplingTime/self._signalLength for i in range(self._signalLength)]
+        self._freqAxis = [i/self._samplingTime for i in range(self._signalLength)]
 
         self._signalProcessing()
 
@@ -174,9 +173,10 @@ class FMCWRadar:
 
         plt.subplot(211)
         plt.plot(self._timeAxis,self._signal)
+        plt.xlabel('time (s)')
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
 
         plt.subplot(212)
-        plt.xlabel('freq(Hz)')
 
         if DCBlock:
             plt.plot(self._freqAxis[1:maxIndex], self._fftSignal[1:maxIndex],'r')
@@ -187,6 +187,10 @@ class FMCWRadar:
                  [self._fftSignal[i] for i in self._peakFreqsIdx if i < maxIndex], 'x')
 
         # plt.yscale('log')
+        plt.xlabel('freq(Hz)')
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+        plt.subplots_adjust(hspace=0.4)
         plt.pause(0.001)
         self._plotEvent.clear()
         return True
@@ -205,7 +209,11 @@ def read(ser, radar, readEvent):
 
             elif s.startswith('d'):
                 # print('readSignal ',s[2:])
-                radar.readSignal(signal=s[2:])
+                try:
+                    radar.readSignal(signal=[float(i) for i in s[2:].split()])
+                except ValueError:
+                    print('Value Error: ',s[2:])
+                    continue
 
             elif s.startswith('e'):
                 # print('endReadSignal ', s[2:])
@@ -224,6 +232,36 @@ def read(ser, radar, readEvent):
 
         time.sleep(0.001)
 
+def readSimSignal(filename, samFreq, radar, readEvent):
+    """without connecting to Arduino, read signal from data"""
+    
+    simSignal = []
+    simSampFreq = 0
+
+    with open('data/distance_raw_0118_late/'+filename+'.csv') as file:
+        datas = csv.reader(file)
+        for ind, data in enumerate(datas):
+            if ind==0: continue
+            elif ind==1:
+                simSampFreq = 1/float(data[3])
+            else:
+                simSignal.append(float(data[1]))
+
+    simSampTime = 6e-4  ## (sec, change this var for frequency resolution)
+    sig = []
+
+    i=1
+    while True:
+        readEvent.wait()
+        if i % int(simSampTime*samFreq) != 0:
+            sig.append(simSignal[(int(i*simSampFreq/samFreq) % len(simSignal))])
+            i+=1
+        else:
+            radar.readSignal(signal=sig)
+
+            radar.endReadSignal(time=simSampTime*1e6 )
+            sig = []
+            time.sleep(0.001)
 
 def port() -> str:
     """find the name of the port"""
@@ -254,16 +292,22 @@ def port() -> str:
 
 def main():
 
-    ## Port Connecting
-    ser = serial.Serial(port())
-    print('Successfully open port: ', ser)
+    # ## Port Connecting
+    # ser = serial.Serial(port())
+    # print('Successfully open port: ', ser)
 
     ## initialize the model
     radar = FMCWRadar(freq=58e8 , slope=1e4/5e-4)  ## operating at 5.8GHz, slope = 10kHz/0.5ms
 
     ## start reading in another thread but block by readEvent
     readEvent  = threading.Event()
-    readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
+
+    # ## practical version
+    # readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
+
+    ## simulation version
+    readThread = threading.Thread(target=readSimSignal, args=['150', 1e6, radar, readEvent], daemon=True)
+    
     readThread.start()
 
     try:
@@ -295,7 +339,7 @@ def main():
                         plt.figure('Signal')
                         while True:
                             radar.plotEvent.wait()
-                            # if not radar.plotSignal(DCBlock=True, maxFreq=300):
+                            # if not radar.plotSignal(DCBlock=True, maxFreq=100000):
                             if not radar.plotSignal(DCBlock=True):
                                 plt.close('Signal')
                                 print('no signal')
@@ -335,7 +379,7 @@ def main():
         pass
     finally: print('Quit main')
 
-    ser.close()
+    # ser.close()
 
 if __name__ == '__main__':
     main()
