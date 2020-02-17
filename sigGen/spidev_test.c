@@ -29,11 +29,6 @@ static void pabort(const char *s)
 	abort();
 }
 
-static char *getDevice()
-{
-    return "/dev/spidev0.0";
-}
-
 static const char *device = "/dev/spidev0.0";
 static uint8_t mode;
 static uint8_t bits = 8;
@@ -43,24 +38,10 @@ static uint16_t delay = 0;
 static uint8_t tx[5] = {0, };
 static uint8_t rx[ARRAY_SIZE(tx)] = {0, };
 
-static void transfer(int fd, struct spi_ioc_transfer *tr, uint8_t *tx, uint8_t *rx)
+static int
+transfer(int fd, struct spi_ioc_transfer *tr)
 {
-	int ret;
-
-    while (1) 
-    {
-    	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-
-        // if (ret < 1)
-    	// 	pabort("can't send spi message");
-
-    	// for (ret = 0; ret < ARRAY_SIZE(tx); ret++) {
-    	// 	if (!(ret % 6))
-    	// 		puts("");
-    	// 	printf("%.2X ", rx[ret]);
-    	// }
-    	// puts("");
-    }
+    return ioctl(fd, SPI_IOC_MESSAGE(1), tr);
 }
 
 static void 
@@ -195,11 +176,13 @@ main(int argc, char *argv[])
 	if (ret == -1)
 		pabort("can't get max speed hz");
 
+    printf("output device: %s\n", device);
 	printf("spi mode: %d\n", mode);
 	printf("bits per word: %d\n", bits);
     printf("bytes to send: %d\n", ARRAY_SIZE(tx));
-	printf("max speed: %d Hz (%d KHz)\n", speed, speed/1000);
+	printf("max speed: %d Hz (%d KHz)\n", speed, speed / 1000);
 
+    // Define the value of tx
     for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) { 
         tx[ret] = 0xF0; 
     }
@@ -219,7 +202,9 @@ main(int argc, char *argv[])
         .bits_per_word = bits,
     };
 
-	transfer(fd, &tr, tx, rx);
+    ret = 1;
+	while (ret >= 1) 
+        { ret = transfer(fd, &tr); }
 
 	close(fd);
 
