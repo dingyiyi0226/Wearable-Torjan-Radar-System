@@ -34,6 +34,29 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
+static const char *device = "/dev/spidev0.0";
+static uint8_t mode;
+static uint8_t bits = 8;
+static uint32_t speed = 1e6;
+static uint16_t delay = 0;
+
+static uint8_t tx[5] = {0xF0, 0xF0, 0xF0, 0xF0, 0xF0};
+static uint8_t tx2[5] = {0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
+static uint8_t rx[ARRAY_SIZE(tx)] = {0, };
+
+
+static void
+Dec2Hex(uint8_t *value, int dec)
+{
+    // TODO 
+}
+
+static void
+getControlWord(int freq, int phase)
+{
+    // TODO
+}
+
 static int
 GPIOExport(int pin)
 {
@@ -154,16 +177,6 @@ static void pabort(const char *s)
 	perror(s);
 	abort();
 }
-
-static const char *device = "/dev/spidev0.0";
-static uint8_t mode;
-static uint8_t bits = 8;
-static uint32_t speed = 1e6;
-static uint16_t delay = 0;
-
-static uint8_t tx[5] = {0x00, 0x00, 0x08, 0x00, 0x00};
-static uint8_t tx2[5] = {0x00, 0x00, 0x80, 0x00, 0x00};
-static uint8_t rx[ARRAY_SIZE(tx)] = {0, };
 
 static int
 transfer(int fd, struct spi_ioc_transfer *tr)
@@ -310,9 +323,9 @@ main(int argc, char *argv[])
 	printf("max speed: %d Hz (%d KHz)\n", speed, speed / 1000);
 
     // Define the value of tx
-    for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) { 
-        tx[ret] = 0xF0; 
-    }
+    // for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) { 
+    //     tx[ret] = 0xF0; 
+    // }
 
     for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) {
     	printf("%.2X ", tx[ret]);
