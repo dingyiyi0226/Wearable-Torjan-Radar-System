@@ -21,14 +21,8 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#define IN  0
-#define OUT 1
-
-#define LOW  0
-#define HIGH 1
+#include <bcm2835.h>
+#include "gpio.h"
 
 #define POUT 23 /* P1-16 */
 
@@ -56,121 +50,6 @@ getControlWord(int freq, int phase)
 {
     // TODO
 }
-
-static int
-GPIOExport(int pin)
-{
-    #define BUFFER_MAX 3
-    char buffer[BUFFER_MAX];
-    ssize_t bytes_written;
-    int fd;
-
-    fd = open("/sys/class/gpio/export", O_WRONLY);
-
-    if (-1 == fd) {
-        fprintf(stderr, "Failed to open export for writing!\n");
-        return(-1);
-    }
-
-    bytes_written = snprintf(buffer, BUFFER_MAX, "%d", pin);
-    write(fd, buffer, bytes_written);
-    close(fd);
-    return(0);
-}
-
-static int
-GPIOUnexport(int pin)
-{
-    char buffer[BUFFER_MAX];
-    ssize_t bytes_written;
-    int fd;
-
-    fd = open("/sys/class/gpio/unexport", O_WRONLY);
-    if (-1 == fd) {
-        fprintf(stderr, "Failed to open unexport for writing!\n");
-        return(-1);
-    }
-
-    bytes_written = snprintf(buffer, BUFFER_MAX, "%d", pin);
-    write(fd, buffer, bytes_written);
-    close(fd);
-    return(0);
-}
-
-static int
-GPIODirection(int pin, int dir)
-{
-    static const char s_directions_str[]  = "in\0out";
-
-    #define DIRECTION_MAX 35
-    char path[DIRECTION_MAX];
-    int fd;
-
-    snprintf(path, DIRECTION_MAX, "/sys/class/gpio/gpio%d/direction", pin);
-    fd = open(path, O_WRONLY);
-    if (-1 == fd) {
-        fprintf(stderr, "Failed to open gpio direction for writing!\n");
-        return(-1);
-    }
-
-    if (-1 == write(fd, &s_directions_str[IN == dir ? 0 : 3], IN == dir ? 2 : 3)) {
-        fprintf(stderr, "Failed to set direction!\n");
-        return(-1);
-    }
-
-    close(fd);
-    return(0);
-}
-
-static int
-GPIORead(int pin)
-{
-    #define VALUE_MAX 30
-    char path[VALUE_MAX];
-    char value_str[3];
-    int fd;
-
-    snprintf(path, VALUE_MAX, "/sys/class/gpio/gpio%d/value", pin);
-    fd = open(path, O_RDONLY);
-    if (-1 == fd) {
-        fprintf(stderr, "Failed to open gpio value for reading!\n");
-        return(-1);
-    }
-
-    if (-1 == read(fd, value_str, 3)) {
-        fprintf(stderr, "Failed to read value!\n");
-        return(-1);
-    }
-
-    close(fd);
-
-    return(atoi(value_str));
-}
-
-static int
-GPIOWrite(int pin, int value)
-{
-    static const char s_values_str[] = "01";
-
-    char path[VALUE_MAX];
-    int fd;
-
-    snprintf(path, VALUE_MAX, "/sys/class/gpio/gpio%d/value", pin);
-    fd = open(path, O_WRONLY);
-    if (-1 == fd) {
-        fprintf(stderr, "Failed to open gpio value for writing!\n");
-        return(-1);
-    }
-
-    if (1 != write(fd, &s_values_str[LOW == value ? 0 : 1], 1)) {
-        fprintf(stderr, "Failed to write value!\n");
-        return(-1);
-    }
-
-    close(fd);
-    return(0);
-}
-
 
 static void pabort(const char *s)
 {
@@ -272,7 +151,7 @@ parse_opts(int argc, char *argv[])
 }
 
 int 
-main(int argc, char *argv[])
+sysfsMain(int argc, char **argv)
 {
 	int ret = 0;
 	int fd;
@@ -322,23 +201,24 @@ main(int argc, char *argv[])
     printf("bytes to send: %d\n", ARRAY_SIZE(tx));
 	printf("max speed: %d Hz (%d KHz)\n", speed, speed / 1000);
 
-    // Define the value of tx
-    // for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) { 
-    //     tx[ret] = 0xF0; 
-    // }
-
     for (ret = 0; ret < ARRAY_SIZE(tx); ++ret) {
     	printf("%.2X ", tx[ret]);
     }
 
     printf("\n");
 
-    struct spi_ioc_transfer tr = {
-        .tx_buf = (unsigned long)tx,
-        .rx_buf = (unsigned long)rx,
-        .len = ARRAY_SIZE(tx),
-        .delay_usecs = delay,
+    for (ret = 0; ret < ARRAY_SIZE(tx2); ++ret) {
+        printf("%.2X ", tx2[ret]);
+    }
+
+    printf("\n");
+
+    struct spi_ioc_transfer tr = { 
+        .tx_buf = (unsigned long)tx, 
+        .rx_buf = (unsigned long)rx, 
+        .len = ARRAY_SIZE(tx), 
         .speed_hz = speed,
+        .delay_usecs = delay,
         .bits_per_word = bits,
     };
 
@@ -346,8 +226,8 @@ main(int argc, char *argv[])
         .tx_buf = (unsigned long)tx2,
         .rx_buf = (unsigned long)rx,
         .len = ARRAY_SIZE(tx2),
-        .delay_usecs = delay,
         .speed_hz = speed,
+        .delay_usecs = delay,
         .bits_per_word = bits,
     };
 
@@ -363,14 +243,12 @@ main(int argc, char *argv[])
     { 
         ret = transfer(fd, &tr); 
         GPIOWrite(POUT, 1);
-        usleep(1e6 / speed);
+        usleep(1);
         GPIOWrite(POUT, 0);
-
-        usleep(500 * 1000);
         
         ret = transfer(fd, &tr2);
         GPIOWrite(POUT, 1);
-        usleep(1e6 / speed);
+        usleep(1);
         GPIOWrite(POUT, 0);
     }
 
@@ -381,4 +259,12 @@ main(int argc, char *argv[])
 	close(fd);
 
 	return ret;
+}
+
+int
+main(int argc, char **argv)
+{
+    bcm2835_spi_begin();
+    bcm2835_spi_end();
+    return 0;
 }

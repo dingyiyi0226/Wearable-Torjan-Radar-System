@@ -1,5 +1,5 @@
 REFPKGS  = 
-SRCPKGS  = 
+SRCPKGS  = gpio
 LIBPKGS  = $(REFPKGS) $(SRCPKGS)
 MAIN     = main
 

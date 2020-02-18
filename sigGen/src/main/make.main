@@ -1,5 +1,6 @@
 PKGFLAG   =
 EXTHDRS   = 
+SYSLIBS   = bcm2835
 
 include ../Makefile.in
 
@@ -8,8 +9,7 @@ TARGET    = $(BINDIR)/$(EXEC)
 
 target: $(TARGET)
 
-#$(TARGET): $(COBJS) $(LIBDEPEND)
-$(TARGET): $(COBJS)
+$(TARGET): $(COBJS) $(LIBDEPEND)
 	@echo "> building $(EXEC)..."
-	@$(CXX) $(CFLAGS) -I$(EXTINCDIR) $(COBJS) -L$(LIBDIR) $(INCLIB) -o $@
+	@$(CXX) $(CFLAGS) -I$(EXTINCDIR) $(COBJS) -L$(LIBDIR) $(INCLIB) -lbcm2835 -o $@
 
