@@ -41,3 +41,4 @@ spidev0.0 <--- this option will appears
 
 1. [RespberryPi SPI Documentation](raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
 2. [RespberryPi Broadcom 2835 Library](https://www.airspayce.com/mikem/bcm2835/)
+3. [Analyzing SPI Driver performance on the Raspberry Pi](jumpnowtek.com/rpi/Analyzing-raspberry-pi-spi-performance.html)
