@@ -29,12 +29,6 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-static const char *device = "/dev/spidev0.0";
-static uint8_t mode;
-static uint8_t bits = 8;
-static uint32_t speed = 1e6;
-static uint16_t delay = 0;
-
 static uint8_t tx[5]  = { 0xF0, 0xF0, 0xF0, 0xF0, 0xF0 };
 static uint8_t tx2[5] = { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC };
 static char tx3[5]    = { 0xF0, 0xF0, 0xF0, 0xF0, 0xF0 };
@@ -51,6 +45,21 @@ static void
 getControlWord(int freq, int phase)
 {
     // TODO
+}
+
+static void
+Dec2Bin(char* value, int dec)
+{
+    // TODO
+    int count = 0;
+
+    for (int c = 31; c > 0; --c)
+    {
+        *(value + count) = ((dec >> c) & 1)? 1 + '0': 0 + '0';
+        ++count;
+    }
+
+    *(value + count) = 0 + '\0';
 }
 
 int
@@ -75,10 +84,26 @@ main(int argc, char **argv)
     
     // Set SPI clock speed 
     // Notes: In RPi2, CDIV4 and CDIV2 mode are unstable.
-    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_8);
+    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_2);
 
     // Set SPI data mode
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);
+
+    printf("BCM2835 Peri:\n");
+    printf("[CLK ]: %#010X - %#010X\n", 
+        bcm2835_clk, bcm2835_peri_read(bcm2835_clk));
+    printf("[GPIO]: %#010X - %#010X\n",
+        bcm2835_gpio, bcm2835_peri_read(bcm2835_gpio));
+    printf("[SPI0]:\n");
+    printf("  - CS:   %#010X\n", *bcm2835_spi0);
+    printf("  - CDIV: %5d\n", *(bcm2835_spi0 + 2));
+    printf("[PADS]:\n");
+    printf("                   Current  SLEW\n");
+    printf("  - GPIO  0 - 27:     %2d      %d\n", 2 * ((*(bcm2835_pads + 11) & 0x7) + 1), (*(bcm2835_pads + 11) & 0x10) >> 4);
+    printf("  - GPIO 28 - 45:     %2d      %d\n", 2 * ((*(bcm2835_pads + 12) & 0x7) + 1), (*(bcm2835_pads + 12) & 0x10) >> 4);
+    printf("  - GPIO 46 - 53:     %2d      %d\n", 2 * ((*(bcm2835_pads + 13) & 0x7) + 1), (*(bcm2835_pads + 13) & 0x10) >> 4);
+
+    // bcm2835_peri_write(bcm2835_pads + 11, ((*(bcm2835_pads + 11) | BCM2835_PAD_PASSWRD) & (0xFFFFFFF8)) | 0x7);
 
     while (1)
     {
@@ -86,6 +111,7 @@ main(int argc, char **argv)
         bcm2835_spi_writenb(tx4, ARRAY_SIZE(tx4));
     }
 
+    // Un-setup SPI pins
     bcm2835_spi_end();
     bcm2835_close();
 
