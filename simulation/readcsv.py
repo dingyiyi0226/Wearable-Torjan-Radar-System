@@ -1,4 +1,5 @@
 import csv
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import random as rd
@@ -82,7 +83,9 @@ def plotMultipleFile(filenames):
 
     num = len(filenames)
 
-    fig, ax =  plt.subplots(num//3+1,3, sharex=False, num='Figure Name')  ## num is **kw_fig
+    fig, ax =  plt.subplots(math.ceil(num/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
+
+    refyfn=[]
 
     for pltind, filename in enumerate(filenames):
 
@@ -118,20 +121,29 @@ def plotMultipleFile(filenames):
         # max_freq = 5e5
         max_freq_index = int(max_freq/min_freq_diff)
 
+        if pltind==0:
+            refyfn=yfn
+            continue
+
+        offsetyfn = yfn
+
+        offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+
         # print(ax[ind])
 
-        ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],yfn[:max_freq_index], color='red')
-        peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.03)
+        ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],offsetyfn[:max_freq_index], color='red')
+        peaks, _ = sg.find_peaks(offsetyfn[:max_freq_index], height = 0.01)
 
-        ax[pltind//3, pltind%3].plot(peaks*min_freq_diff,[ yfn[i] for i in peaks], marker='x')
+        # ax[pltind//3, pltind%3].plot(peaks*min_freq_diff,[ offsetyfn[i] for i in peaks], marker='x')
         peakList = []
         for ind, i in enumerate(peaks):
-            ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*min_freq_diff), xy=(peaks[ind]*min_freq_diff,yfn[i]))
-            print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*min_freq_diff), yfn[i]))
-            peakList.append( (int(peaks[ind]*min_freq_diff), yfn[i]) )
+            ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*min_freq_diff), xy=(peaks[ind]*min_freq_diff,offsetyfn[i]))
+            print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*min_freq_diff), offsetyfn[i]))
+            peakList.append( (int(peaks[ind]*min_freq_diff), offsetyfn[i]) )
 
         ax[pltind//3, pltind%3].set_title(filename+' cm')
         # ax[pltind//3, pltind%3].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+        # ax[pltind//3, pltind%3].set_ylim((0,s 0.03))
 
     fig.subplots_adjust(hspace=0.6)
     plt.show()
@@ -153,6 +165,8 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
 
     for distance in distanceList:
 
+        distance*=2
+
         timeDelay = (distance+distanceOffset)/3e8
         beatFreq = timeDelay*slope
         fbRoundUp = roundto(roundto(beatFreq, fm), freqRes)
@@ -167,7 +181,7 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
 
         plt.figure('Figure')
 
-        plt.plot(distanceList, freqList)
+        plt.scatter(distanceList, freqList)
         plt.xlabel('Distance (m)')
         plt.ylabel('Frequency (Hz)')
         plt.xticks(distanceList)
@@ -288,8 +302,8 @@ def plotHeatmap(filenames, distanceList, distanceOffset):
 
 def main():
     filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752']
-    # plotSingleFile('0252')
-    plotMultipleFile(filenames)
+    plotSingleFile('0252')
+    # plotMultipleFile(filenames)
     # plotTheoretical(distanceList=np.arange(0.25, 3, 0.25), distanceOffset=10*2**0.5,
     #                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
