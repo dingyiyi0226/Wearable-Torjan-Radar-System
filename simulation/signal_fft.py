@@ -325,13 +325,13 @@ def readcsv(filename):
             else:
                 signal.append(float(data[1]))
     return signal, simFreq
-def main():
+def mmain():
     # genMixer()
     radar()
     # genTxSig()
     # test()
 
-def mmain():
+def main():
 
     filename = '75'
 

@@ -26,13 +26,13 @@ f_high = f_basis+f_shift*f_step
 f_list = []
 
 def pulseHigh(pin):                     # Function to send a pulse
-#    GPIO.output(pin, True)              # do it a few times to increase pulse width
-#    GPIO.output(pin, True)              # (easier than writing a delay loop!)
+    GPIO.output(pin, True)              # do it a few times to increase pulse width
+    GPIO.output(pin, True)              # (easier than writing a delay loop!)
     GPIO.output(pin, True)
     GPIO.output(pin, False)             # end of the pulse
     return
 
-"""
+
 def old_tfr_byte(data):                 # Function to send a byte by serial "bit-banging"
     for i in range (0,8):
         GPIO.output(DATA, data & 0x01)  # Mask out LSB and put on GPIO pin "DATA"
@@ -47,7 +47,7 @@ def old_sendFrequency(freq):            # Function to send frequency (assumes 12
     old_tfr_byte(0x01)
     pulseHigh(FQ_UD)
     return
-"""
+
 
 """ --------------- serial input --------------- """
 
@@ -88,6 +88,7 @@ def sendFreqParallel(freq):
     tfr_word(freq[16:24])
     tfr_word(freq[8:16])
     tfr_word(freq[0:8])
+    pulseHigh(FQ_UD)
 
 """ -------------------------------------------- """
 
@@ -129,7 +130,7 @@ def flist2Binary(flist):
 GPIO.setup(W_CLK, GPIO.OUT)             # setup IO bits...
 GPIO.setup(FQ_UD, GPIO.OUT)             #
 GPIO.setup(RESET, GPIO.OUT)             #
-GPIO.setup(DATA, GPIO.OUT)              #
+# GPIO.setup(DATA, GPIO.OUT)              #
 for i in range(8):
     GPIO.setup(PARA_DATA[i], GPIO.OUT)
 
@@ -137,7 +138,7 @@ for i in range(8):
 GPIO.output(W_CLK, False)               # initialize everything to zero...
 GPIO.output(FQ_UD, False)
 GPIO.output(RESET, False)
-GPIO.output(DATA, False)
+# GPIO.output(DATA, False)
 for i in range(8):
     GPIO.output(PARA_DATA[i], False)
 
@@ -150,7 +151,8 @@ sawtoothList(f_step, f_shift, f_basis)
 b_list = flist2Binary(f_list)
 while True:
     for freq in b_list:
-        # sendFrequency(freq)
-        sendFreqParallel(freq)
+        sendFrequency(freq)
+        # sendFreqParallel(freq)
+    # old_sendFrequency(28360)
 #    GPIO.output(DATA, True)
 #    GPIO.output(DATA, False)

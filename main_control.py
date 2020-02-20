@@ -1,3 +1,4 @@
+import csv
 import os
 import serial
 import sys
@@ -8,7 +9,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-import csv
 
 class FMCWRadar:
     """FMCW Radar model for each freqency"""
@@ -28,10 +28,10 @@ class FMCWRadar:
         ## SIGNAL PROCESSING
 
         self._signalLength = 0   ## length of received data , fft data
-        self._signal       = []  ## received data
         self._resetFlag = False  ## reset signal flag
-        self._timeAxis     = []  ## time axis of received data
+        self._signal       = []  ## received data
         self._fftSignal    = []  ## fft data
+        self._timeAxis     = []  ## time axis of received data
         self._freqAxis     = []  ## freq axis of fft data
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSignal
@@ -56,7 +56,6 @@ class FMCWRadar:
         return self._info.get(key)
 
     def resetInfo(self):
-        self._objectFreqs = []
         self._info = {}
 
     ## SIGNAL PROCESSING FUNCTIONS
@@ -94,10 +93,12 @@ class FMCWRadar:
     def _fft(self):
         """perform fft on `_signal`"""
 
-        PEAK_HEIGHT = 10.  ## amplitude of peak frequency must exceed PEAK_HEIGHT
+        PEAK_HEIGHT = 1e-2  ## amplitude of peak frequency must exceed PEAK_HEIGHT
         fftSignal_o = abs(np.fft.fft(self._signal))
         self._fftSignal = [i*2/self._signalLength for i in fftSignal_o]
+
         self._peakFreqsIdx, _ = find_peaks(self._fftSignal[:self._signalLength//2], height=PEAK_HEIGHT)
+        # print(self._peakFreqsIdx)
         self._plotEvent.set()
 
     def _findFreqPair(self) -> bool:
@@ -107,34 +108,40 @@ class FMCWRadar:
             return false if no peak frequency is found
         """
 
-        PEAK_DIFF = 1.  ## we assume two peak belong to same object if and only if the amplitude
-                        ## difference between two peaks < PEAK_DIFF
+        PEAK_DIFF = 1e-3  ## we assume two peak belong to same object if and only if the amplitude
+                          ## difference between two peaks < PEAK_DIFF
         sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self._fftSignal[k], reverse=True)
         if not sortedFreqIndex: return False
 
-        tmpFreq = 0.
+        freqAmplitude = 0
+        tmpFreqIndex = 0
         # print('sortedFreqIndex', sortedFreqIndex)
-        # print('freqIndex')
         for freqIndex in sortedFreqIndex:
-            # print(self._fftSignal[freqIndex])
-            if tmpFreq == 0:
-                tmpFreq = self._fftSignal[freqIndex]
+            # print(freqIndex, self._fftSignal[freqIndex])
+            if freqAmplitude == 0:
+                freqAmplitude = self._fftSignal[freqIndex]
+                tmpFreqIndex = freqIndex
                 continue
-            if (tmpFreq - self._fftSignal[freqIndex]) < PEAK_DIFF:
-                self._objectFreqs.append((tmpFreq, self._fftSignal[freqIndex]))
-                tmpFreq = 0.
+            if (freqAmplitude - self._fftSignal[freqIndex]) < PEAK_DIFF:
+                self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), int(freqIndex/self._samplingTime)))
+                freqAmplitude = 0.
             else:
-                self._objectFreqs.append((tmpFreq, ))
-                tmpFreq = 0.
-        if tmpFreq != 0:
-            self._objectFreqs.append((tmpFreq, ))
+                self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
+                freqAmplitude = self._fftSignal[freqIndex]
+                tmpFreqIndex = freqIndex
+            # print(freqIndex)
+        if freqAmplitude != 0:
+            self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
         return True
 
     def _calculateInfo(self):
         """calculate range and velocity of every object from `_objectFreqs`"""
 
+        # print('calculateInfo', self._objectFreqs)
         objRange = 0.
         objVelo  = 0.
+        infoList = []
+
         for tup in self._objectFreqs:
             if len(tup) == 1:
                 fb = tup[0]
@@ -146,10 +153,15 @@ class FMCWRadar:
                 objRange = fb / self._slope * 3e8 / 2
                 objVelo  = fd / self._freq  * 3e8 / 2
 
-            if self._direction in self._info:
-                self._info[self._direction] += (objRange, objVelo)
-            else:
-                self._info[self._direction] = [(objRange, objVelo)]
+            infoList += (objRange, objVelo)
+
+            # if self._direction in self._info:
+            #     self._info[self._direction] += (objRange, objVelo)
+            # else:
+            #     self._info[self._direction] = [(objRange, objVelo)]
+
+        self._info[self._direction] = infoList
+        self._objectFreqs = []
 
     ## PLOTTING FUNCTIONS
 
@@ -181,7 +193,7 @@ class FMCWRadar:
         if DCBlock:
             plt.plot(self._freqAxis[1:maxIndex], self._fftSignal[1:maxIndex],'r')
         else:
-            plt.plot(self._freqAxis[1:maxIndex], self._fftSignal[0:maxIndex],'r')
+            plt.plot(self._freqAxis[0:maxIndex], self._fftSignal[0:maxIndex],'r')
 
         plt.plot([self._freqAxis[i]  for i in self._peakFreqsIdx if i < maxIndex],
                  [self._fftSignal[i] for i in self._peakFreqsIdx if i < maxIndex], 'x')
@@ -238,7 +250,7 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
     simSignal = []
     simSampFreq = 0
 
-    with open('data/distance_raw_0118_late/'+filename+'.csv') as file:
+    with open('data/distance_raw_0118_early/'+filename+'.csv') as file:
         datas = csv.reader(file)
         for ind, data in enumerate(datas):
             if ind==0: continue
@@ -295,7 +307,7 @@ def main():
     # print('Successfully open port: ', ser)
 
     ## initialize the model
-    radar = FMCWRadar(freq=58e8 , slope=1e4/5e-4)  ## operating at 5.8GHz, slope = 10kHz/0.5ms
+    radar = FMCWRadar(freq=58e8 , slope=16e6/25e-6)  ## operating at 5.8GHz, slope = 16MHz/25us
 
     ## start reading in another thread but block by readEvent
     readEvent  = threading.Event()
@@ -305,7 +317,7 @@ def main():
 
     ## simulation version
     readThread = threading.Thread(target=readSimSignal, daemon=True,
-        kwargs={'filename': '150', 'samFreq':1e6, 'samTime':3e-4, 'radar':radar, 'readEvent':readEvent})
+        kwargs={'filename':'75', 'samFreq':1e6, 'samTime':5e-3, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
 
@@ -371,8 +383,10 @@ def main():
                 radar.resetInfo()
                 print('reset all direction data')
 
-            elif s.startswith('q'): break
-            else: print('Undefined Command')
+            elif s.startswith('q'):
+                break
+            else:
+                print('Undefined Command')
 
     except KeyboardInterrupt:
         pass
