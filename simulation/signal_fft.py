@@ -1,6 +1,7 @@
 import csv
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import random as rd
 import scipy.signal as sg
 
 def test():
@@ -11,7 +12,7 @@ def test():
     print('fs =', N/T)
 
     t = np.linspace(0, T, N)
-    w = sg.chirp(t, f0=6, f1=1, t1=T, method='linear')
+    w = sg.chirp(t, f0=6, f1=1, t1=T, method='linear', phi=0)
 
     # sig = w
     # actualN = N
@@ -125,15 +126,16 @@ def radar():
 
     simTime = chirpTime * 2 * triangleNum
     simN = int(simFreq * simTime)
+    modFreq = 1/(chirpTime*2)
 
     print('fs:',simFreq)
     print('T:', simTime)
     print('N:', simN)
     print('freqResolution:', 1/simTime)
     print('BW:', BW)
-    print('fm:', 1/(chirpTime*2))
+    print('fm:', modFreq)
 
-    distance = 50
+    distance = 40
     delta_t = distance/3e8
     delayIdx = int(delta_t*simFreq)
     theoreticalFreq = delta_t*BW/chirpTime
@@ -144,17 +146,32 @@ def radar():
     print('theoreticalFreq:', theoreticalFreq)
     
     t_chirp_axis = np.linspace(0, chirpTime, chirpN, endpoint=False)
-    t_sim_axis = np.linspace(0, simTime, simN, endpoint=False)
-
     txChirpSignal = sg.chirp(t_chirp_axis, f0=freqLow, t1=chirpTime, f1=freqHigh, method='linear')
-    txSignal = np.tile(np.concatenate( (txChirpSignal, np.flip(txChirpSignal)) ), triangleNum)
 
-    rxSignal = np.roll(txSignal, delayIdx)
+    txSignal = np.tile(np.concatenate( [txChirpSignal, np.flip(txChirpSignal)] ), triangleNum)
 
-    # freqDop = 0
+    # freqDop = 20000
     # rxDopSigChirp = sg.chirp(t_chirp_axis, f0=freqLow+freqDop, t1=chirpTime, f1=freqHigh+freqDop, method='linear')
     # rxDopSig = np.tile(np.concatenate( (rxDopSigChirp, np.flip(rxDopSigChirp)) ), triangleNum)
     # rxSignal = np.roll(rxDopSig, delayIdx)
+
+
+    # ## add phase difference
+
+    # txChirpPhaseSig = []
+    # for phi in np.linspace(0, 300, triangleNum):
+    #     # tmpUpSig = sg.chirp(t_chirp_axis, f0=freqLow, t1=chirpTime, f1=freqHigh, phi=phi, method='linear')
+    #     # tmpDnSig = sg.chirp(t_chirp_axis, f0=freqHigh, t1=chirpTime, f1=freqLow, phi=2*phi, method='linear')
+    #     tmpUpSig = sg.chirp(t_chirp_axis, f0=freqLow, t1=chirpTime, f1=freqHigh, phi=rd.random()*360, method='linear')
+    #     tmpDnSig = sg.chirp(t_chirp_axis, f0=freqHigh, t1=chirpTime, f1=freqLow, phi=rd.random()*360, method='linear')
+        
+    #     txChirpPhaseSig.append(tmpUpSig)
+    #     txChirpPhaseSig.append(np.flip(tmpUpSig))
+    #     # txChirpPhaseSig.append(tmpDnSig)
+    # txSignal = np.concatenate(txChirpPhaseSig)
+
+    rxSignal = np.roll(txSignal, delayIdx)
+
 
     ## lowpass filter
 
@@ -169,8 +186,8 @@ def radar():
 
     ## sampling signal
 
-    # samFreq = simFreq
-    samFreq = 1e6
+    samFreq = simFreq
+    samFreq = 10e6
     samN = int(samFreq * simTime)
 
     print('')
@@ -207,6 +224,92 @@ def radar():
     plt.subplots_adjust(hspace=0.5)
     plt.show()
 
+def genMixer():
+
+    simFreq = 300e6
+
+    delta_t_1 = 0.005e-6
+    delta_t_2 = 0.005e-6
+    delta_N_1 = int(simFreq * delta_t_1)
+    delta_N_2 = int(simFreq * delta_t_2)
+
+    maintain_t = (50e-6 - delta_t_1 - delta_t_2)/2
+    maintain_N = int(simFreq * maintain_t)
+
+    modTime = maintain_t * 2 + delta_t_1 + delta_t_2
+    modFreq = 1/modTime
+
+    triangleNum = 10
+
+    simTime = modTime * triangleNum
+    simN = (delta_N_1+delta_N_2+maintain_N)*2*triangleNum ##
+
+    print('simFreq:',simFreq)
+    print('simT:', simTime)
+    print('simN:', simN, (delta_N_1+delta_N_2+maintain_N)*2*triangleNum)
+
+    print('freqResolution:', 1/simTime)
+    print('fm:', modFreq)
+
+    f1 = 1e6
+    f2 = 25e4
+
+    print('f1',f1)
+    print('f2',f2)
+    
+    t_chirp_axis_1 = np.linspace(0, delta_t_1, delta_N_1, endpoint=False)
+    t_chirp_axis_2 = np.linspace(0, delta_t_2, delta_N_2, endpoint=False)
+    t_maintain_axis = np.linspace(0, maintain_t, maintain_N, endpoint=False)
+    t_axis = np.linspace(0, simTime, simN, endpoint=False)
+
+    ifChirpSignal_1 = sg.chirp(t_chirp_axis_1, f0=0, t1=delta_t_1, f1=f1, method='linear')
+    ifChirpSignal_2 = sg.chirp(t_chirp_axis_1, f0=0, t1=delta_t_2, f1=f2, method='linear')
+    maintainSignal_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, method='linear')
+    maintainSignal_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, method='linear')
+
+    ifSignal = np.tile(np.concatenate( (maintainSignal_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, maintainSignal_2, np.flip(ifChirpSignal_2), ifChirpSignal_1) ), triangleNum)
+
+    ## add phase difference
+
+    ifSignal_phase = []
+    for phi in np.linspace(0, 650, triangleNum):
+        # tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=phi, method='linear')
+        # tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=phi, method='linear')
+
+        tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=rd.random()*360, method='linear')
+        tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=rd.random()*360, method='linear')
+        
+        ifSignal_phase.extend([ tmpSig_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, tmpSig_2, np.flip(ifChirpSignal_2), ifChirpSignal_1 ])
+
+    ifSignal = np.concatenate(ifSignal_phase)
+
+    plt.figure()
+
+    plt.subplot(211)
+    plt.plot(t_axis, ifSignal)
+    plt.title('IF Signal')
+    plt.xlabel('time (s)')
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+
+    fftIfSig = abs(np.fft.fft(ifSignal))
+    fftIfSig *= 2/simN
+
+    f_axis = np.arange(simN, dtype=float) * 1./simTime
+    # maxFreqIdx = simN//2
+    maxFreq = max(f1,f2)*2
+    maxFreqIdx = int(maxFreq * simTime)
+
+    plt.subplot(212)
+    plt.plot(f_axis[:maxFreqIdx], fftIfSig[:maxFreqIdx])
+    plt.title('FFT')
+    plt.xlabel('freq (Hz)')
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+    plt.subplots_adjust(hspace=0.5)
+
+    plt.show()
+
 
 def readcsv(filename):
     """return signal list and simulation data frequency"""
@@ -222,12 +325,13 @@ def readcsv(filename):
             else:
                 signal.append(float(data[1]))
     return signal, simFreq
-def main():
+def mmain():
+    # genMixer()
     radar()
     # genTxSig()
     # test()
 
-def mmain():
+def main():
 
     filename = '75'
 
