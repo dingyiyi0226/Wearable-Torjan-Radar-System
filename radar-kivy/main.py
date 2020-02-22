@@ -34,8 +34,6 @@ class SignalOscilloscope(RelativeLayout):
 
 class RadarInterface(FloatLayout):
     """ Circular radar Interface """
-    # targets = ListProperty()
-
     def update(self, polarCoors):
         """ Clean all and add new targets to radar. """
         # self.canvas.clear()
@@ -52,18 +50,20 @@ class RadarInterface(FloatLayout):
         self.clear_widgets()
         for radius, angle, alpha in polarCoors:
             target = Target(center=(self.center_x + radius * cos(radians(angle)), self.center_y + radius * sin(radians(angle))))
-            print("Layout Center: ", self.center)
-            print("Target Center: ", target.center)
-            print("Target Size:", target.size)
             self.add_widget(target)
+
+        for target in self.children:
+            print(self.center, target.center, target.size)
  
 class UserInterface(FloatLayout):
     """ ... """
+    radar = ObjectProperty(None)
+
     def __init__(self, **kwargs):
         super(UserInterface, self).__init__()
 
     def update(self, dt: float):
-        self.radar.update([ (50, 45, 1), (50, 135, 0.5) ])
+        self.radar.update([ (0, 0, 1), (150, 45, 1), (150, 135, 0.5) ])
 
 class RadarApp(App):
     """ ... """
