@@ -1,5 +1,5 @@
 import sys
-from math import sin, cos
+from math import sin, cos, radians, pi
 
 sys.path.insert(1, '../')
 import main_control
@@ -9,6 +9,7 @@ from kivy.cache import Cache
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.core.window import Window
+from kivy.graphics import Ellipse, Color
 from kivy.properties import *
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -20,69 +21,65 @@ class Target(Widget):
     """
     ...
     """
-    def __init__(self, distance=0, angle=0, v=0):
-        super(Target, self).__init__()
 
-        self.pos = (distance * cos(angle), distance * sin(angle))
-        self.vx  = NumericProperty(v)
-        self.vy  = NumericProperty(v)
-        self.v   = ReferenceListProperty(self.v, self.v)
-
-    def move(self):
-        pass
-
+    v_x = NumericProperty(0)
+    v_y = NumericProperty(0)
+    v   = ReferenceListProperty(v_x, v_y)
+    
 class ControlPanel(RelativeLayout):
     pass
 
 class SignalOscilloscope(RelativeLayout):
     pass
 
-class RadarInterface(RelativeLayout):
+class RadarInterface(FloatLayout):
     """ Circular radar Interface """
-    def update(self):
-        pass
+    # targets = ListProperty()
 
-    def on_touch_down(self, touch):
-        print(self.size, min(self.size))
+    def update(self, polarCoors):
+        """ Clean all and add new targets to radar. """
+        # self.canvas.clear()
+        d = 50
 
-    # def doIt(self, newTargets):
-    #     self.clear_widgets()
-    #     for target in newTargets:
-    #         self.add_widget(target)
+        # with self.canvas:
+        #     for radius, angle, alpha in polarCoors:
+        #         Color(0.8, 0.8, 0, alpha, mode='rgba')
 
+        #         x = self.center_x + radius * cos(radians(angle)) - d / 2
+        #         y = self.center_y + radius * sin(radians(angle)) - d / 2
+        #         Ellipse(pos=(x, y), size=(d, d))
+            
+        self.clear_widgets()
+        for radius, angle, alpha in polarCoors:
+            target = Target(center=(self.center_x + radius * cos(radians(angle)), self.center_y + radius * sin(radians(angle))))
+            print("Layout Center: ", self.center)
+            print("Target Center: ", target.center)
+            print("Target Size:", target.size)
+            self.add_widget(target)
+ 
 class UserInterface(FloatLayout):
-    """
-    Attributes of each widget should be add as <WidgetName> in .kv file.
-
-    Notes: Root of widgets. 
-    """
-    # radar = ObjectProperty(RadarInterface())
-
-    def __init__(self):
+    """ ... """
+    def __init__(self, **kwargs):
         super(UserInterface, self).__init__()
 
-        radar = RadarInterface()
-        radar.height, radar.width = min(self.size), min(self.size)
-        
-        self.add_widget(radar)
-
     def update(self, dt: float):
-        self.radar.update()
+        self.radar.update([ (50, 45, 1), (50, 135, 0.5) ])
 
 class RadarApp(App):
-    """ 
-    Notes: Read radar.kv automatically.
-    """
+    """ ... """
     def __init__(self, frame: float):
         super(RadarApp, self).__init__()
         self.frameRate = frame
 
     def build(self):
-        # Launch the children widgets
+        # Window.maximize()
+        # Clock.max_iteration = 20
+
+        # Launch the root widget and set clock
         interface = UserInterface()
         Clock.schedule_interval(interface.update, 1.0 / self.frameRate)
+
         return interface
 
 if __name__ == "__main__":
-    Window.maximize()
-    RadarApp(frame=60.0).run()
+    RadarApp(frame=1).run()
