@@ -25,6 +25,11 @@ class Target(Widget):
     v_x = NumericProperty(0)
     v_y = NumericProperty(0)
     v   = ReferenceListProperty(v_x, v_y)
+
+    def update(self):
+        with self.canvas:
+            Color(0.8, 0.8, 0, 1, mode='rgba')
+            Ellipse(pos=self.pos, size=self.size)
     
 class ControlPanel(RelativeLayout):
     pass
@@ -36,8 +41,7 @@ class RadarInterface(FloatLayout):
     """ Circular radar Interface """
     def update(self, polarCoors):
         """ Clean all and add new targets to radar. """
-        # self.canvas.clear()
-        d = 50
+        d = 0.02 * self.width
 
         # with self.canvas:
         #     for radius, angle, alpha in polarCoors:
@@ -48,12 +52,13 @@ class RadarInterface(FloatLayout):
         #         Ellipse(pos=(x, y), size=(d, d))
             
         self.clear_widgets()
-        for radius, angle, alpha in polarCoors:
-            target = Target(center=(self.center_x + radius * cos(radians(angle)), self.center_y + radius * sin(radians(angle))))
+        for radius, angle, _ in polarCoors:
+            target = Target(pos=(self.center_x - d / 2 + radius * cos(radians(angle)), self.center_y - d / 2 + radius * sin(radians(angle))), size=(d, d))
             self.add_widget(target)
 
         for target in self.children:
-            print(self.center, target.center, target.size)
+            target.update()
+        #     print(self.center, target.center, target.size)
  
 class UserInterface(FloatLayout):
     """ ... """
@@ -63,7 +68,7 @@ class UserInterface(FloatLayout):
         super(UserInterface, self).__init__()
 
     def update(self, dt: float):
-        self.radar.update([ (0, 0, 1), (150, 45, 1), (150, 135, 0.5) ])
+        self.radar.update([ (0, 0, 1), (150, 45, 1), (150, 135, 1) ])
 
 class RadarApp(App):
     """ ... """

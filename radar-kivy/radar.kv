@@ -15,9 +15,11 @@
 
     RadarInterface:
         id: radar
-        pos: self.pos
+        pos: 0, 0
         width: min(self.size)
         height: min(self.size)
+        padding: 0
+        spacing: 0
 
     # SignalOscilloscope:
     #     center: self.parent.center
@@ -26,8 +28,8 @@
     #     id: panel
     #     center: self.parent.center
 
-<ControlPanel>:
-    BoxLayout:
+# <ControlPanel>:
+#     BoxLayout:
 
 # FloatLayout
 <RadarInterface>:
@@ -44,25 +46,29 @@
             points: (self.center_x, 0, self.center_x, self.top)
 
         Line:
-            width: 2.0
-            ellipse: (self.center_x - 0.5 * self.width, self.center_y - 0.5 * self.height, self.width, self.height)
+            width: 1.0
+            ellipse: (0, 0, self.width, self.height)
 
         Line:
-            width: 2.0
-            ellipse: (self.center_x - 0.375 * self.width, self.center_y - 0.375 * self.height, 0.75 * self.width, 0.75 * self.height)
+            width: 1.0
+            ellipse: (0.125 * self.width, 0.125 * self.height, 0.75 * self.width, 0.75 * self.height)
 
         Line:
-            width: 2.0
-            ellipse: (self.center_x - 0.25 * self.width, self.center_y - 0.25 * self.height, 0.5 * self.width, 0.5 * self.height)
+            width: 1.0
+            ellipse: (0.25 * self.width, 0.25 * self.height, 0.5 * self.width, 0.5 * self.height)
 
 # Trace Points
-<Target>:
-    size_hint: 0.02, 0.02
+# <Target>:
+#     size_hint: 0.02, 0.02
 
-    canvas:
-        Color:
-            rgba: 0.8, 0.8, 0, 1
+#     canvas:
+#         Color:
+#             rgba: 0.8, 0.8, 0, 1
 
-        Ellipse:
-            size: self.size
-            pos: self.pos
+#         Rectangle:
+#             pos: self.pos
+#             size: self.size
+
+        # Ellipse:
+        #     pos: self.pos
+        #     size: self.size
