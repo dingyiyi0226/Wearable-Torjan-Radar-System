@@ -310,81 +310,11 @@ def genMixer():
 
     plt.show()
 
-
-def readcsv(filename):
-    """return signal list and simulation data frequency"""
-
-    signal = []
-    with open('../distance_raw_0118_early/'+filename+'.csv') as file:
-        datas = csv.reader(file)
-        simFreq = 0
-        for ind, data in enumerate(datas):
-            if ind==0: continue
-            elif ind==1:
-                simFreq = 1/float(data[3])
-            else:
-                signal.append(float(data[1]))
-    return signal, simFreq
-def mmain():
+def main():
     # genMixer()
     radar()
     # genTxSig()
     # test()
 
-def main():
-
-    filename = '75'
-
-    y, fs = readcsv(filename)
-    N = len(y)                          ## number of simulation data points
-    min_freq_diff = fs/N                ## spacing between two freqencies on axis
-    print('N =', N)
-    print('fs =', fs)
-    print('min_freq_diff =',min_freq_diff)
-
-    t_axis = [i/fs for i in range(N)]
-    f_axis = [i*min_freq_diff for i in range(N)]
-
-    yf = abs(np.fft.fft(y))
-    # yfs = np.fft.fftshift(yf)         ## shift 0 frequency to middle
-                                        ## [0,1,2,3,4,-4,-3,-2,-1] -> [-4,-3,-2,-1,0,1,2,3,4]
-                                        ## (-fs/2, fs/2)
-                                        ## just plot the positive frequency, so dont need to shift
-
-    yfn = [i*2/N for i in yf]           ## normalization
-                                        ## let the amplitude of output signal equals to inputs
-
-    plt.figure('Figure')
-
-
-    plt.subplot(211)
-    plt.plot(t_axis, y, 'b')
-    plt.title('Signal of '+filename+' cm')
-    plt.xlabel('time (s)')
-    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
-
-    plt.subplot(212)
-
-    # max_freq = (len(f_axis)//2)*min_freq_diff
-    max_freq = 5e5
-    max_freq_index = int(max_freq/min_freq_diff)
-
-
-    # ## block modulation frequency
-    # for i in range(len(yfn)):
-    #     if i % 5 ==0: yfn[i]=0
-
-    plt.plot(f_axis[:max_freq_index],yfn[:max_freq_index], 'r')
-    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.01)
-
-    plt.plot(peaks*min_freq_diff,[ yfn[i] for i in peaks], 'x')
-    for ind, i in enumerate(peaks):
-        plt.annotate(s=int(peaks[ind]*min_freq_diff), xy=(peaks[ind]*min_freq_diff,yfn[i]))
-    plt.title('FFT')
-    plt.xlabel('freq (Hz)')
-    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
-
-    plt.subplots_adjust(hspace=0.5)
-    plt.show()
 if __name__ == '__main__':
     main()
