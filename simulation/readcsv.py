@@ -15,7 +15,7 @@ def readcsv(filename):
     """return signal list and simulation data frequency"""
 
     signal = []
-    today = '0223'
+    today = '0221'
     with open('../../rawdata/distance_test_{}/{}.csv'.format(today, filename)) as file:
         datas = csv.reader(file)
         simFreq = 0
@@ -31,6 +31,7 @@ def readcsv(filename):
     return signal, simFreq, today
 
 def plotSingleFile(filename):
+    """ plot time domain signal and fft signal """
 
     y, fs, today = readcsv(filename)
     print('-----------------------------')
@@ -55,6 +56,7 @@ def plotSingleFile(filename):
 
     plt.figure('Figure')
     plt.suptitle(today)
+
     plt.subplot(211)
     plt.plot(t_axis, y)
     plt.title('Signal of '+filename+' cm')
@@ -85,12 +87,14 @@ def plotSingleFile(filename):
     plt.show()
 
 def plotMultipleFile(filenames):
+    """ plot fft signal for each file """
 
-    num = len(filenames)
-
-    fig, ax =  plt.subplots(math.ceil(num/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
+    fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
 
     refyfn=[]
+
+    # remove background
+    removeBG = True
 
     for pltind, filename in enumerate(filenames):
 
@@ -115,25 +119,17 @@ def plotMultipleFile(filenames):
         yfn = [i*2/N for i in yf]           ## normalization
                                             ## let the amplitude of output signal equals to inputs
 
-        
-        # plt.subplot(211)
-        # plt.plot(t_axis, y)
-        # plt.title('Signal of '+filename+' cm')
-        # plt.xlabel('time (s)')
-        # plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
-
         max_freq = (len(f_axis)//2)*min_freq_diff
         # max_freq = 5e5
         max_freq_index = int(max_freq/min_freq_diff)
 
-
         offsetyfn = yfn
 
-        # remove background
-        if pltind==0:
-            refyfn=yfn
-            continue
-        offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+        if removeBG:
+            if pltind==0:
+                refyfn=yfn
+            else:
+                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
 
         # print(ax[pltind])
 
@@ -149,9 +145,15 @@ def plotMultipleFile(filenames):
 
         ax[pltind//3, pltind%3].set_title(filename+' cm')
         # ax[pltind//3, pltind%3].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
-        ax[pltind//3, pltind%3].set_ylim((0, 0.1))
+        if removeBG:
+            ax[pltind//3, pltind%3].set_ylim((-0.03, 0.1))
+        else:
+            ax[pltind//3, pltind%3].set_ylim((0, 0.1))
 
-    fig.suptitle(today)
+    if removeBG:
+        fig.suptitle(today+' remove background')
+    else:
+        fig.suptitle(today)
     fig.subplots_adjust(hspace=0.6)
     plt.show()
 
@@ -188,17 +190,18 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
         beatFreq = timeDelay*slope
         fbRoundUp = roundto(roundto(beatFreq, fm), freqRes)
         if not roundup:
-            # print('ggg', beatFreq)
+            # print('beatFreq', beatFreq)
             freqList.append(beatFreq)
         else:
-            # print('fff', fbRoundUp)
+            # print('fbRoundUp', fbRoundUp)
             freqList.append(fbRoundUp)
 
     if doPlot:
 
         plt.figure('Figure')
 
-        plt.scatter(distanceList, freqList)
+        plt.plot(distanceList, freqList)
+        # plt.scatter(distanceList, freqList)
         plt.xlabel('Distance (m)')
         plt.ylabel('Frequency (Hz)')
         plt.xticks(distanceList)
@@ -209,6 +212,7 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
     return freqList
 
 def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
+    """ plot experimental value and theoretical value """
 
     freqList = []
 
@@ -247,7 +251,7 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
         max_freq_index = int(max_freq/minFreqDiff)
         freqList.append(f_axis[yfn.index(max(yfn[:max_freq_index]))])
 
-    print(freqList)
+    print('freqList:', freqList)
 
     theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
 
@@ -266,11 +270,17 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
     plt.show()
 
 def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
+    """ plot fft signal at each distance in heatmap """
+
     freqData = []
+    refyfn=[]
 
     heatmapXWidth=600//len(distanceList)  ## pixels of x axis
 
-    for filename in filenames:
+    # remove background
+    removeBG = True
+
+    for pltind, filename in enumerate(filenames):
 
         y, fs, today = readcsv(filename)
         print('-----------------------------')
@@ -298,9 +308,16 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
         # max_freq = 5e5
         max_freq_index = int(max_freq/minFreqDiff)
 
+        offsetyfn = yfn
+
+        if removeBG:
+            if pltind==0:
+                refyfn=yfn
+            else:
+                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
 
         for i in range(heatmapXWidth):
-            freqData.append(np.flip(yfn[:max_freq_index]))
+            freqData.append(np.flip(offsetyfn[:max_freq_index]))
 
     # print(freqList)
     freqDataNp = np.array(freqData).transpose()
@@ -313,7 +330,10 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
 
     fig, ax=  plt.subplots(1,2, num='Figure', figsize=(10,5))
 
-    fig.suptitle(today)
+    if removeBG:
+        fig.suptitle(today+' remove background')
+    else:
+        fig.suptitle(today)
 
     ax[0].set_title('Experiment')
     ax[0].imshow(freqDataNp)
@@ -352,7 +372,7 @@ def main():
     ## 0220 files
 
     # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
+    # filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
 
     ## 0221 files
 
@@ -361,7 +381,7 @@ def main():
     # filenames = ['3001','3251','3501','3751','4001','4251','4501','4751','5001']
     # filenames = ['3002','3252','3502','3752','4002','4252','4502','4752','5002']
     # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001','3251', '3501','3751','4001','4251','4501','4751','5001']
-    # filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252', '3502','3752','4002','4252','4502','4752','5002']
+    filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252', '3502','3752','4002','4252','4502','4752','5002']
    
     ## 0222 files
 
@@ -374,18 +394,19 @@ def main():
     # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
     # filenames = ['3251','3501','3751','4001','4251','4501','4751','5001','5251','5501','5751','6001']
     # filenames = ['3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
-    filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
+    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
 
 
     # plotSingleFile('3002')
     # plotMultipleFile(filenames)
-    # plotTheoretical(distanceList=np.arange(0.25, 3, 0.25), distanceOffset=10*2.24**0.5,
+
+    # plotTheoretical(distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
     #                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    # plotExpAndTheo(filenames, distanceList=np.arange(0.25, 3.01, 0.25), distanceOffset=10*2.24**0.5,
+    # plotExpAndTheo(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
     #                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    plotHeatmap(filenames, distanceList=np.arange(0.25, 6.01, 0.25), distanceOffset=10*2.24**0.5,
+    plotHeatmap(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
 
