@@ -130,10 +130,10 @@ def plotMultipleFile(filenames):
         offsetyfn = yfn
 
         # remove background
-        # if pltind==0:
-        #     refyfn=yfn
-        #     continue
-        # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+        if pltind==0:
+            refyfn=yfn
+            continue
+        offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
 
         # print(ax[pltind])
 
@@ -268,13 +268,15 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
 def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
     freqData = []
 
+    heatmapXWidth=600//len(distanceList)  ## pixels of x axis
+
     for filename in filenames:
 
-        y, fs = readcsv(filename)
+        y, fs, today = readcsv(filename)
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
-        minFreqDiff = fs/N                ## spacing between two freqencies on axis
+        minFreqDiff = fs/N                  ## spacing between two freqencies on axis
         print('N =', N)
         print('fs =', fs)
         print('minFreqDiff =',minFreqDiff)
@@ -295,35 +297,53 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
         max_freq = (len(f_axis)//2)*minFreqDiff
         # max_freq = 5e5
         max_freq_index = int(max_freq/minFreqDiff)
-        for i in range(25):
-            freqData.append(np.zeros(max_freq_index))
-        freqData.append(np.flip(yfn[:max_freq_index]))
-        for i in range(25):
-            freqData.append(np.zeros(max_freq_index))
-        # print(yfn[:max_freq_index])
-        # freqList.append(f_axis[yfn.index(max(yfn[:max_freq_index]))])
+
+
+        for i in range(heatmapXWidth):
+            freqData.append(np.flip(yfn[:max_freq_index]))
 
     # print(freqList)
-    freqDataNp = np.array(freqData)
-    print('freqDataNp', freqDataNp.shape)
-    # np.transpose(freqDataNp)
-    freqDataNp=freqDataNp.transpose()
-    print('freqDataNp', freqDataNp.shape)
+    freqDataNp = np.array(freqData).transpose()
 
     theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
 
-    plt.figure('Figure')
+    xtickPos = [i for i in range(heatmapXWidth*len(distanceList)) if i%heatmapXWidth==heatmapXWidth//2]
+    xtickSample = 3
+    ytickcnt = 16
 
-    plt.imshow(freqDataNp)
-    plt.colorbar()
+    fig, ax=  plt.subplots(1,2, num='Figure', figsize=(10,5))
 
-    plt.xlabel('Distance (m)')
-    plt.xticks([i for i in range(51*12) if i%51==25], distanceList)
+    fig.suptitle(today)
 
-    plt.ylabel('Frequency (Hz)')
-    # plt.yticks( np.arange(50))
-    # plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+    ax[0].set_title('Experiment')
+    ax[0].imshow(freqDataNp)
 
+    ax[0].set_xlabel('Distance (m)')
+    ax[0].set_xticks(xtickPos[::xtickSample])
+    ax[0].set_xticklabels(distanceList[::xtickSample])
+
+    ax[0].set_ylabel('Frequency (Hz)')
+    ax[0].set_yticks(np.linspace(0,max_freq_index,ytickcnt))
+    ax[0].set_yticklabels(np.flip(np.linspace(0, max_freq, ytickcnt, dtype=int)))
+
+    ax[0].tick_params(right=True, left=False, labelleft=False)
+
+
+    im = ax[1].imshow(freqDataNp)
+
+    ax[1].set_title('Theoretical')
+    ax[1].set_xlabel('Distance (m)')
+    ax[1].set_xticks(xtickPos[::xtickSample])
+    ax[1].set_xticklabels(distanceList[::xtickSample])
+    ax[1].set_yticks(np.linspace(0,max_freq_index,ytickcnt))
+    ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, ytickcnt, dtype=int)))
+
+    theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
+    ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoFreqList], 'r')
+
+
+    plt.subplots_adjust(wspace=0.25)
+    plt.colorbar(im, ax=ax.ravel().tolist(), shrink=0.7)
     plt.show()
 
 
@@ -332,7 +352,7 @@ def main():
     ## 0220 files
 
     # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    # filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
+    filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
 
     ## 0221 files
 
@@ -351,23 +371,22 @@ def main():
     ## 0223 files
 
     # filenames = ['0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
+    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
     # filenames = ['3251','3501','3751','4001','4251','4501','4751','5001','5251','5501','5751','6001']
     # filenames = ['3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
-    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
-    
+    filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
 
 
     # plotSingleFile('3002')
-    plotMultipleFile(filenames)
+    # plotMultipleFile(filenames)
     # plotTheoretical(distanceList=np.arange(0.25, 3, 0.25), distanceOffset=10*2.24**0.5,
     #                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    # plotExpAndTheo(filenames, distanceList=np.arange(0.25, 6.01, 0.25), distanceOffset=10*2.24**0.5,
+    # plotExpAndTheo(filenames, distanceList=np.arange(0.25, 3.01, 0.25), distanceOffset=10*2.24**0.5,
     #                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    # plotHeatmap(filenames, distanceList=np.arange(0.25, 3.01, 0.25), distanceOffset=10*2**0.5,
-    #             BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    plotHeatmap(filenames, distanceList=np.arange(0.25, 6.01, 0.25), distanceOffset=10*2.24**0.5,
+                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
 
 if __name__ == '__main__':
