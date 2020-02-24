@@ -226,7 +226,7 @@ def radar():
 
 def genMixer():
 
-    simFreq = 300e6
+    simFreq = 10e6
 
     delta_t_1 = 0.005e-6
     delta_t_2 = 0.005e-6
@@ -243,16 +243,17 @@ def genMixer():
 
     simTime = modTime * triangleNum
     simN = (delta_N_1+delta_N_2+maintain_N)*2*triangleNum ##
+    simN = (maintain_N)*2*triangleNum ##
 
     print('simFreq:',simFreq)
     print('simT:', simTime)
-    print('simN:', simN, (delta_N_1+delta_N_2+maintain_N)*2*triangleNum)
+    print('simN:', simN)
 
     print('freqResolution:', 1/simTime)
     print('fm:', modFreq)
 
     f1 = 1e6
-    f2 = 25e4
+    f2 = 1e6
 
     print('f1',f1)
     print('f2',f2)
@@ -264,24 +265,26 @@ def genMixer():
 
     ifChirpSignal_1 = sg.chirp(t_chirp_axis_1, f0=0, t1=delta_t_1, f1=f1, method='linear')
     ifChirpSignal_2 = sg.chirp(t_chirp_axis_1, f0=0, t1=delta_t_2, f1=f2, method='linear')
-    maintainSignal_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, method='linear')
-    maintainSignal_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, method='linear')
+    maintainSignal_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, method='linear', phi=70)
+    # maintainSignal_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, method='linear')
+    maintainSignal_2 = np.flip(maintainSignal_1)
 
-    ifSignal = np.tile(np.concatenate( (maintainSignal_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, maintainSignal_2, np.flip(ifChirpSignal_2), ifChirpSignal_1) ), triangleNum)
+    # ifSignal = np.tile(np.concatenate( (maintainSignal_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, maintainSignal_2, np.flip(ifChirpSignal_2), ifChirpSignal_1) ), triangleNum)
+    ifSignal = np.tile(np.concatenate( (maintainSignal_1, maintainSignal_2) ), triangleNum)
 
     ## add phase difference
 
-    ifSignal_phase = []
-    for phi in np.linspace(0, 650, triangleNum):
-        # tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=phi, method='linear')
-        # tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=phi, method='linear')
+    # ifSignal_phase = []
+    # for phi in np.linspace(0, 650, triangleNum):
+    #     # tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=phi, method='linear')
+    #     # tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=phi, method='linear')
 
-        tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=rd.random()*360, method='linear')
-        tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=rd.random()*360, method='linear')
+    #     tmpSig_1 = sg.chirp(t_maintain_axis, f0=f1, t1=maintain_t, f1=f1, phi=rd.random()*360, method='linear')
+    #     tmpSig_2 = sg.chirp(t_maintain_axis, f0=f2, t1=maintain_t, f1=f2, phi=rd.random()*360, method='linear')
         
-        ifSignal_phase.extend([ tmpSig_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, tmpSig_2, np.flip(ifChirpSignal_2), ifChirpSignal_1 ])
+    #     ifSignal_phase.extend([ tmpSig_1, np.flip(ifChirpSignal_1), ifChirpSignal_2, tmpSig_2, np.flip(ifChirpSignal_2), ifChirpSignal_1 ])
 
-    ifSignal = np.concatenate(ifSignal_phase)
+    # ifSignal = np.concatenate(ifSignal_phase)
 
     plt.figure()
 
@@ -296,9 +299,9 @@ def genMixer():
     fftIfSig *= 2/simN
 
     f_axis = np.arange(simN, dtype=float) * 1./simTime
-    # maxFreqIdx = simN//2
-    maxFreq = max(f1,f2)*2
-    maxFreqIdx = int(maxFreq * simTime)
+    maxFreqIdx = simN//2
+    # maxFreq = max(f1,f2)*2
+    # maxFreqIdx = int(maxFreq * simTime)
 
     plt.subplot(212)
     plt.plot(f_axis[:maxFreqIdx], fftIfSig[:maxFreqIdx])
@@ -311,8 +314,8 @@ def genMixer():
     plt.show()
 
 def main():
-    # genMixer()
-    radar()
+    genMixer()
+    # radar()
     # genTxSig()
     # test()
 
