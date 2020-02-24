@@ -86,6 +86,35 @@ def plotSingleFile(filename):
     plt.subplots_adjust(hspace=0.5)
     plt.show()
 
+    """
+
+    plt.figure('Figure2')
+    plt.suptitle('after filter')
+
+    plt.subplot(211)
+
+    yfnFilter = []
+    for ind, i in enumerate(yfn):
+        if ind<len(yfn)//4 or ind>len(yfn)//4*3:
+            yfnFilter.append(i)
+        else:
+            yfnFilter.append(0)
+
+    plt.plot(f_axis[:max_freq_index],yfnFilter[:max_freq_index])
+    plt.xlabel('freq (Hz)')
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+    sigFilter = np.fft.ifft(yfnFilter)
+
+    plt.subplot(212)
+    plt.plot(t_axis, sigFilter)
+    plt.xlabel('time (s)')
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+    plt.subplots_adjust(hspace=0.5)
+    plt.show()
+    """
+
 def plotMultipleFile(filenames):
     """ plot fft signal for each file """
 
@@ -397,7 +426,7 @@ def main():
     # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
 
 
-    # plotSingleFile('3002')
+    plotSingleFile('2002')
     # plotMultipleFile(filenames)
 
     # plotTheoretical(distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
@@ -406,8 +435,8 @@ def main():
     # plotExpAndTheo(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
     #                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    plotHeatmap(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
-                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    # plotHeatmap(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
+    #             BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
 
 if __name__ == '__main__':
