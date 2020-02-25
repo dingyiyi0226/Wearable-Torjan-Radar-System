@@ -15,7 +15,7 @@ def readcsv(filename):
     """return signal list and simulation data frequency"""
 
     signal = []
-    today = '0225'
+    today = '0225_2'
     with open('./rawdata/{}/{}.csv'.format(today, filename)) as file:
         datas = csv.reader(file)
         simFreq = 0
@@ -244,8 +244,12 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
     """ plot experimental value and theoretical value """
 
     freqList = []
+    refyfn=[]
 
-    for filename in filenames:
+    # remove background
+    removeBG = True
+
+    for pltind, filename in enumerate(filenames):
 
         y, fs, today = readcsv(filename)
         print('-----------------------------')
@@ -278,7 +282,17 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
         max_freq = (len(f_axis)//2)*minFreqDiff
         # max_freq = 5e5
         max_freq_index = int(max_freq/minFreqDiff)
-        freqList.append(f_axis[yfn.index(max(yfn[:max_freq_index]))])
+
+        offsetyfn = yfn
+
+        if removeBG:
+            if pltind==0:
+                refyfn=yfn
+            else:
+                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+
+
+        freqList.append(f_axis[offsetyfn.index(max(offsetyfn[:max_freq_index]))])
 
     print('freqList:', freqList)
 
@@ -338,6 +352,7 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
         max_freq_index = int(max_freq/minFreqDiff)
 
         offsetyfn = yfn
+        normalizeyfn = offsetyfn
 
         if removeBG:
             if pltind==0:
@@ -345,8 +360,10 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
             else:
                 offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
 
+        normalizeyfn = [i*(pltind*0.25)**1 for i in offsetyfn]
+
         for i in range(heatmapXWidth):
-            freqData.append(np.flip(offsetyfn[:max_freq_index]))
+            freqData.append(np.flip(normalizeyfn[:max_freq_index]))
 
     # print(freqList)
     freqDataNp = np.array(freqData).transpose()
@@ -428,19 +445,23 @@ def main():
     ## 0225 files
     # filenames = [ str(i) + '1' for i in range(0, 5.75, 0.25) ]
     # filenames = [ str(i) + '2' for i in range(0, 5.75, 0.25) ]
-    filenames = [ str(int(i * 100)).zfill(3) + '2' for i in np.arange(0, 5.75, 0.25) ]
 
-    # plotSingleFile('2002')
+
+    distanceList = np.arange(0, 5.55, 0.25)
+
+    filenames = [ str(int(i * 100)).zfill(3) + '2' for i in distanceList ]
+
+    # plotSingleFile('4252')
     # plotMultipleFile(filenames)
 
-    # plotTheoretical(distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
+    # plotTheoretical(distanceList, distanceOffset=10*2.24**0.5,
     #                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    # plotExpAndTheo(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
-    #                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    plotExpAndTheo(filenames, distanceList, distanceOffset=10*2.24**0.5,
+                   BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
 
-    plotHeatmap(filenames, distanceList=np.arange(0, 5.75, 0.25), distanceOffset=10*2.24**0.5,
-                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    # plotHeatmap(filenames, distanceList, distanceOffset=10*2.24**0.5,
+    #             BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
 
 
 if __name__ == '__main__':
