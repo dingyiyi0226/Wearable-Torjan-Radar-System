@@ -15,8 +15,8 @@ def readcsv(filename):
     """return signal list and simulation data frequency"""
 
     signal = []
-    today = '0221'
-    with open('../../rawdata/distance_test_{}/{}.csv'.format(today, filename)) as file:
+    today = '0225'
+    with open('./rawdata/{}/{}.csv'.format(today, filename)) as file:
         datas = csv.reader(file)
         simFreq = 0
         for ind, data in enumerate(datas):
@@ -365,7 +365,7 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
         fig.suptitle(today)
 
     ax[0].set_title('Experiment')
-    ax[0].imshow(freqDataNp)
+    ax[0].imshow(freqDataNp, cmap='gray')
 
     ax[0].set_xlabel('Distance (m)')
     ax[0].set_xticks(xtickPos[::xtickSample])
@@ -378,7 +378,7 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
     ax[0].tick_params(right=True, left=False, labelleft=False)
 
 
-    im = ax[1].imshow(freqDataNp)
+    im = ax[1].imshow(freqDataNp, cmap='gray')
 
     ax[1].set_title('Theoretical')
     ax[1].set_xlabel('Distance (m)')
@@ -425,8 +425,12 @@ def main():
     # filenames = ['3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
     # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
 
+    ## 0225 files
+    # filenames = [ str(i) + '1' for i in range(0, 5.75, 0.25) ]
+    # filenames = [ str(i) + '2' for i in range(0, 5.75, 0.25) ]
+    filenames = [ str(int(i * 100)).zfill(3) + '2' for i in np.arange(0, 5.75, 0.25) ]
 
-    plotSingleFile('2002')
+    # plotSingleFile('2002')
     # plotMultipleFile(filenames)
 
     # plotTheoretical(distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
@@ -435,8 +439,8 @@ def main():
     # plotExpAndTheo(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
     #                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
-    # plotHeatmap(filenames, distanceList=np.arange(0, 5.01, 0.25), distanceOffset=10*2.24**0.5,
-    #             BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    plotHeatmap(filenames, distanceList=np.arange(0, 5.75, 0.25), distanceOffset=10*2.24**0.5,
+                BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
 
 
 if __name__ == '__main__':
