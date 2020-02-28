@@ -7,6 +7,8 @@ import threading
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Button
 from scipy.signal import find_peaks
 
 
@@ -29,34 +31,19 @@ class FMCWRadar:
 
         self._signalLength = 0   ## length of received data , fft data
         self._resetFlag = False  ## reset signal flag
-        self._signal       = []  ## received data
-        self._fftSignal    = []  ## fft data
-        self._timeAxis     = []  ## time axis of received data
-        self._freqAxis     = []  ## freq axis of fft data
+        self._signal       = []  ## received data (temp signal)
+
+
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSignal
         self._objectFreqs  = []  ## [(f1,f2), (f3,f4), ... ] two freqs cause by an object
                                  ## the tuple contain only one freq iff the object is stationary
 
-        ## PLOTTING
+        self.timeSignal    = []  ## time domain signal
+        self.fftSignal     = []  ## freq domain signal
+        self.timeAxis      = []  ## time axis of timeSignal
+        self.freqAxis      = []  ## freq axis of fftSignal
 
-        self._plotEvent = threading.Event()
-
-    ## DATA FUNCTIONS
-
-    @property
-    def direction(self):
-        return self._direction
-
-    @property
-    def info(self):
-        return self._info
-
-    def infoAtDirection(self, key):
-        return self._info.get(key)
-
-    def resetInfo(self):
-        self._info = {}
 
     ## SIGNAL PROCESSING FUNCTIONS
 
@@ -78,8 +65,9 @@ class FMCWRadar:
         if not self._signal: return
         self._signalLength = len(self._signal)
         self._samplingTime = time * 1e-6
-        self._timeAxis = [i*self._samplingTime/self._signalLength for i in range(self._signalLength)]
-        self._freqAxis = [i/self._samplingTime for i in range(self._signalLength)]
+        self.timeAxis = [i*self._samplingTime/self._signalLength for i in range(self._signalLength)]
+        self.freqAxis = [i/self._samplingTime for i in range(self._signalLength)]
+        self.timeSignal = self._signal[:]
 
         self._signalProcessing()
 
@@ -95,11 +83,10 @@ class FMCWRadar:
 
         PEAK_HEIGHT = 1e-2  ## amplitude of peak frequency must exceed PEAK_HEIGHT
         fftSignal_o = abs(np.fft.fft(self._signal))
-        self._fftSignal = [i*2/self._signalLength for i in fftSignal_o]
+        self.fftSignal = [i*2/self._signalLength for i in fftSignal_o]
 
-        self._peakFreqsIdx, _ = find_peaks(self._fftSignal[:self._signalLength//2], height=PEAK_HEIGHT)
+        self._peakFreqsIdx, _ = find_peaks(self.fftSignal[:self._signalLength//2], height=PEAK_HEIGHT)
         # print(self._peakFreqsIdx)
-        self._plotEvent.set()
 
     def _findFreqPair(self) -> bool:
         """split the freqs in `_peakFreq` with same intensity into pairs
@@ -110,24 +97,24 @@ class FMCWRadar:
 
         PEAK_DIFF = 1e-3  ## we assume two peak belong to same object if and only if the amplitude
                           ## difference between two peaks < PEAK_DIFF
-        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self._fftSignal[k], reverse=True)
+        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.fftSignal[k], reverse=True)
         if not sortedFreqIndex: return False
 
         freqAmplitude = 0
         tmpFreqIndex = 0
         # print('sortedFreqIndex', sortedFreqIndex)
         for freqIndex in sortedFreqIndex:
-            # print(freqIndex, self._fftSignal[freqIndex])
+            # print(freqIndex, self.fftSignal[freqIndex])
             if freqAmplitude == 0:
-                freqAmplitude = self._fftSignal[freqIndex]
+                freqAmplitude = self.fftSignal[freqIndex]
                 tmpFreqIndex = freqIndex
                 continue
-            if (freqAmplitude - self._fftSignal[freqIndex]) < PEAK_DIFF:
+            if (freqAmplitude - self.fftSignal[freqIndex]) < PEAK_DIFF:
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), int(freqIndex/self._samplingTime)))
                 freqAmplitude = 0.
             else:
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
-                freqAmplitude = self._fftSignal[freqIndex]
+                freqAmplitude = self.fftSignal[freqIndex]
                 tmpFreqIndex = freqIndex
             # print(freqIndex)
         if freqAmplitude != 0:
@@ -163,50 +150,78 @@ class FMCWRadar:
         self._info[self._direction] = infoList
         self._objectFreqs = []
 
-    ## PLOTTING FUNCTIONS
 
-    @property
-    def plotEvent(self):
-        return self._plotEvent
+class RadarView:
 
-    def plotSignal(self, DCBlock : bool=False, maxFreq=None) -> bool:
-        """only plot signal with frequencies in (0, maxFreq)"""
 
-        if not self._signal: return False
-        ## convert maxFreq to corresponding index (maxIndex)
-        maxIndex = self._signalLength//2 if maxFreq is None else int(maxFreq * self._samplingTime)
+    def __init__(self, t):
 
-        if maxIndex > self._signalLength//2:
-            print('maxFreq do not exceed ', int(self._signalLength//2 / self._samplingTime))
-            self._plotEvent.clear()
-            return False
+        if t==1:
+            self.fig, self.ax = plt.subplots(2,1, num='fig')
+            # self.fig2, self.ax2 = plt.subplots(3,2, num='fig2')
 
-        plt.clf()
+            self.ax[0].set_xlim(0, 6e-3)
+            self.ax[0].set_ylim(-0.12, 0.12)
+            
+            self.ax[1].set_xlim(0, 2e5)
+            self.ax[1].set_ylim(0, 0.05)
 
-        plt.subplot(211)
-        plt.plot(self._timeAxis,self._signal)
-        plt.xlabel('time (s)')
-        plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+            self.fig.subplots_adjust(left=0.3)
 
-        plt.subplot(212)
+            self.timeLine, = self.ax[0].plot([], [])
+            self.freqLine, = self.ax[1].plot([], [], 'r')
 
-        if DCBlock:
-            plt.plot(self._freqAxis[1:maxIndex], self._fftSignal[1:maxIndex],'r')
+            self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+            self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
+            self.button.on_clicked(self.onClick)
+
         else:
-            plt.plot(self._freqAxis[0:maxIndex], self._fftSignal[0:maxIndex],'r')
+            self.fig = plt.figure('fig2')
+            self.ax = self.fig.add_subplot(111, polar=True)
 
-        plt.plot([self._freqAxis[i]  for i in self._peakFreqsIdx if i < maxIndex],
-                 [self._fftSignal[i] for i in self._peakFreqsIdx if i < maxIndex], 'x')
+            self.ax.set_rmax(2)
+            self.ax.set_rticks(np.arange(0, 2, 0.5))
 
-        # plt.yscale('log')
-        plt.xlabel('freq(Hz)')
-        plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+            self.fig.subplots_adjust(left=0.3)
 
-        plt.subplots_adjust(hspace=0.4)
-        plt.pause(0.001)
-        self._plotEvent.clear()
-        return True
+            self.ppiData, = self.ax.plot([], [], 'ro')
 
+            self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+            self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
+            self.button.on_clicked(self.onClick)
+
+
+    def figShow(self):
+        plt.pause(1)
+
+    def initPPI(self):
+        return self.ppiData,
+
+    def updatePPI(self, frame, ppiR, ppiTheta):
+
+        ## dynamic set rmax
+
+        self.ppiData.set_data(ppiR, ppiTheta)
+
+        return self.ppiData,
+
+
+    def initRealTimeSig(self):
+        # print('initRealTimeSig')
+
+        return self.timeLine, self.freqLine,
+
+    def updateRealTimeSig(self,frame, timeSignal, timeAxis, freqSignal, freqAxis):
+        # print('frame', frame)
+
+        ## dynamic set ax.x_lim here
+
+        self.timeLine.set_data(timeAxis, timeSignal)
+        self.freqLine.set_data(freqAxis, freqSignal)
+
+        return self.timeLine, self.freqLine,
+    def onClick(self, event):
+        print('click')
 
 def read(ser, radar, readEvent):
     """read signal at anytime in other thread"""
@@ -250,7 +265,7 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
     simSignal = []
     simSampFreq = 0
 
-    with open('data/distance_raw_0118_early/'+filename+'.csv') as file:
+    with open('rawdata/0225/'+filename+'.csv') as file:
         datas = csv.reader(file)
         for ind, data in enumerate(datas):
             if ind==0: continue
@@ -307,7 +322,7 @@ def main():
     # print('Successfully open port: ', ser)
 
     ## initialize the model
-    radar = FMCWRadar(freq=58e8 , slope=16e6/25e-6)  ## operating at 5.8GHz, slope = 16MHz/25us
+    radar = FMCWRadar(freq=58e8 , slope=100e6/1e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
 
     ## start reading in another thread but block by readEvent
     readEvent  = threading.Event()
@@ -317,9 +332,13 @@ def main():
 
     ## simulation version
     readThread = threading.Thread(target=readSimSignal, daemon=True,
-        kwargs={'filename':'75', 'samFreq':1e6, 'samTime':5e-3, 'radar':radar, 'readEvent':readEvent})
+        kwargs={'filename':'2252', 'samFreq':1e6, 'samTime':5e-3, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
+    print('Reading Signal')
+    readEvent.set()
+
+    # radarView = RadarView()
 
     try:
         prompt = ''
@@ -342,49 +361,32 @@ def main():
                     readEvent.clear()
                     print('Stop Reading Signal')
 
+
             elif s.startswith('draw'):
-                if not readEvent.is_set():
-                    print('readEvent has not set')
-                else:
-                    try:
-                        plt.figure('Signal')
-                        while True:
-                            radar.plotEvent.wait()
-                            # if not radar.plotSignal(DCBlock=True, maxFreq=100000):
-                            if not radar.plotSignal(DCBlock=True):
-                                plt.close('Signal')
-                                print('no signal')
-                                break
-                            time.sleep(0.01)
+                radarView = RadarView(1)
 
-                    except KeyboardInterrupt:
-                        plt.close('Signal')
-                        print('Quit drawing')
+                animation = FuncAnimation(radarView.fig, radarView.updateRealTimeSig,
+                    frames=100, init_func=radarView.initRealTimeSig, interval=100,
+                    fargs=(radar.timeSignal, radar.timeAxis, radar.fftSignal, radar.freqAxis))
+                radarView.figShow()
 
-            elif s.startswith('currentdir'):
-                print('current direction:', radar.direction)
+            elif s.startswith('ppi'):
+                radarView = RadarView(2)
+                
+                animation = FuncAnimation(radarView.fig, radarView.updatePPI,
+                    frames=100, init_func=radarView.initPPI, interval=100,
+                    fargs=([1,2], [np.pi/2, np.pi/3]))
 
-            elif s.startswith('infoat'):
-                try:
-                    ss = input('direction: ')
-                    info = radar.infoAtDirection(float(ss))
-                    if info is None:
-                        print('{} is not a valid direction'.format(ss))
-                    else:
-                        print('direction: {}, (range, velocity): {}'.format(ss, info))
-                except ValueError:
-                    print('{} is not a valid direction'.format(ss))
+                radarView.figShow()
 
-            elif s.startswith('info'):
-                for ind,val in radar.info.items():
-                    print('direction: {}, (range, velocity): {}'.format(ind, val))
+            elif s.startswith('close'):
+                plt.close(radarView.fig)
 
-            elif s.startswith('resetinfo'):
-                radar.resetInfo()
-                print('reset all direction data')
 
             elif s.startswith('q'):
                 break
+            elif s.startswith('test'):
+                print('hello world')
             else:
                 print('Undefined Command')
 
