@@ -197,11 +197,12 @@ class RadarView:
     def initPPI(self):
         return self.ppiData,
 
-    def updatePPI(self, frame, ppiR, ppiTheta):
+    def updatePPI(self, frame, ppiTheta, ppiR):
 
-        ## dynamic set rmax
-
-        self.ppiData.set_data(ppiR, ppiTheta)
+        ## dynamic set rmax ??
+        
+        self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
+        # self.ppiData.set_data(ppiTheta, ppiR)
 
         return self.ppiData,
 
@@ -214,7 +215,7 @@ class RadarView:
     def updateRealTimeSig(self,frame, timeSignal, timeAxis, freqSignal, freqAxis):
         # print('frame', frame)
 
-        ## dynamic set ax.x_lim here
+        ## dynamic set ax.x_lim here ??
 
         self.timeLine.set_data(timeAxis, timeSignal)
         self.freqLine.set_data(freqAxis, freqSignal)
@@ -372,10 +373,10 @@ def main():
 
             elif s.startswith('ppi'):
                 radarView = RadarView(2)
-                
+
                 animation = FuncAnimation(radarView.fig, radarView.updatePPI,
                     frames=100, init_func=radarView.initPPI, interval=100,
-                    fargs=([1,2], [np.pi/2, np.pi/3]))
+                    fargs=([np.pi/2, np.pi/3], [1,0.5]))
 
                 radarView.figShow()
 
