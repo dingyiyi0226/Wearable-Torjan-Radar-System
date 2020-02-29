@@ -34,7 +34,6 @@ class FMCWRadar:
         self._resetFlag = False  ## reset signal flag
         self._signal       = []  ## received data (temp signal)
 
-
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSig
         self._objectFreqs  = []  ## [(f1,f2), (f3,f4), ... ] two freqs cause by an object
@@ -199,8 +198,8 @@ class RadarView:
 
         ## dynamic set rmax ??
 
-        # self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
-        self.ppiData.set_data(ppiTheta, ppiR)
+        self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
+        # self.ppiData.set_data(ppiTheta, ppiR)
 
         return self.ppiData,
 
@@ -371,7 +370,7 @@ def main():
                 radarView = RadarView(1)
 
                 animation = FuncAnimation(radarView.fig, radarView.updateRealTimeSig,
-                    frames=100, init_func=radarView.initRealTimeSig, interval=20,
+                    frames=100, init_func=radarView.initRealTimeSig, interval=20, blit=True,
                     fargs=(radar.realTimeSig,))
                 radarView.figShow()
 
@@ -379,7 +378,7 @@ def main():
                 radarView = RadarView(2)
 
                 animation = FuncAnimation(radarView.fig, radarView.updatePPI,
-                    frames=100, init_func=radarView.initPPI, interval=100,
+                    frames=100, init_func=radarView.initPPI, interval=20, blit=True,
                     fargs=([random.random(), np.pi/3], [1,0.5]))
 
                 radarView.figShow()
