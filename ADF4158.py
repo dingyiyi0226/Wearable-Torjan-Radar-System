@@ -13,6 +13,7 @@
   R7: DELAY REGISTER
 """
 
+from collections import OrderedDict
 from functools import wraps
 from enum import Enum, IntEnum, unique
 import RPi.GPIO as GPIO
@@ -29,8 +30,12 @@ GPIO.setwarnings(False)
 W_CLK  = 12     # T4
 DATA   = 16     # T5
 LE     = 18     # T6
-TXDATA = 15     # T16
-MUXOUT = 17     # T8
+TXDATA = 13     # T16
+MUXOUT = 15     # T8
+
+# ------------------------------------------------------ #
+# Enumerate                                              #
+# ------------------------------------------------------ #
 
 @unique
 class Clock(IntEnum):
@@ -65,13 +70,9 @@ class Muxout(IntEnum):
     N_DIVIDER_2  = 14
     READBACK     = 15
 
-def initGPIOPins():
-    """ GPIO Pins initialization for ADF4158 config. """
-    for pin in (W_CLK, LE, DATA):
-        GPIO.setup(pin, GPIO.OUT)
-    
-    for pin in (TXDATA, MUXOUT, ):
-        GPIO.setup(pin, GPIO.IN)
+# ------------------------------------------------------ #
+# Helper function                                        #
+# ------------------------------------------------------ #
 
 def verbose(func):
     """ Decorator for sendWord(). Show words to send in binary format. """
@@ -91,32 +92,21 @@ def pulseHigh(pin):
     GPIO.output(pin, True)
     GPIO.output(pin, False)
 
-def setReady():
+def bitMask(pos):
+    """ 0...010...0 Mask. """
+    return (1 << pos)
+
+def mask(start, end=0):
+    """ 0...011...1 Mask. """
+    return (1 << (start + 1)) - (1 << (end))
+
+def overwrite(value, start, end, newValue):
+    return (value & (~mask(start, end))) | (newValue << end)
+
+def setReadyToWrite():
     GPIO.output(W_CLK, False)
     GPIO.output(DATA, False)
     GPIO.output(LE, False)
-
-# TODO
-@verbose
-def sendWord(word, clk=Clock.RISING_EDGE):
-    """
-    :param word: 32-bits information
-
-    :param clk: { Clock.RISING_EDGE, Clock.FALLING_EDGE } optional
-    """
-    
-    # Raise Clock after setup DATA 
-    for i in range(31, -1, -1):
-        GPIO.output(DATA, word[i])
-        pulseHigh(W_CLK)
-
-    # Raise LE
-    pulseHigh(LE)
-
-    # Reset Data as 0
-    GPIO.output(DATA, False)
-
-    return True
 
 # TODO
 def readWord():
@@ -135,6 +125,156 @@ def readWord():
 
     return word
 
+# ------------------------------------------------------ #
+# Public Function                                        #
+# ------------------------------------------------------ #
+
+@verbose
+def sendWord(word, clk=Clock.RISING_EDGE):
+    """
+    :param word: 32-bits information
+
+    :param clk: { Clock.RISING_EDGE, Clock.FALLING_EDGE } optional
+    """
+    
+    # Raise Clock after setup DATA 
+    for i in range(31, 0, -1):
+        GPIO.output(DATA, bool((word >> i) % 2))
+        pulseHigh(W_CLK)
+
+    # Hold LE for last clock
+    GPIO.output(DATA, bool(word % 2))
+    GPIO.output(W_CLK, True)
+    GPIO.output(LE, True)
+    GPIO.output(W_CLK, False)
+    GPIO.output(LE, False)
+
+    # Reset Data as 0
+    GPIO.output(DATA, False)
+
+    return True
+
+def initBitPatterns() -> OrderedDict:
+    """ Initialize bit patterns """
+    patterns = OrderedDict()
+
+    patterns['PIN7']  = 0x00000007
+    patterns['PIN6A'] = 0x00000006
+    patterns['PIN6B'] = 0x00800006
+    patterns['PIN5A'] = 0x00000005
+    patterns['PIN5B'] = 0x00800005
+    patterns['PIN4']  = 0x00180104
+    patterns['PIN3']  = 0x00000043
+    patterns['PIN2']  = 0x0040800A
+    patterns['PIN1']  = 0x00000001
+    patterns['PIN0']  = 0x01220000
+
+    return patterns
+
+def initGPIOPins() -> None:
+    """ GPIO Pins initialization for ADF4158 config. """
+    for pin in (W_CLK, LE, DATA):
+        GPIO.setup(pin, GPIO.OUT)
+    
+    for pin in (TXDATA, MUXOUT, ):
+        GPIO.setup(pin, GPIO.IN)
+
+def initADF4851() -> OrderedDict:
+    """ 
+    Initial ADF4851 Signal Generator
+
+    :return patterns: the initial patterns wrote in ADF4158
+
+    .. References:
+        (Datasheet p.25)
+    """
+    
+    initGPIOPins()
+    setReadyToWrite()
+
+    patterns = initBitPatterns()
+    for value in patterns.values():
+        sendWord(value)
+
+    return patterns
+
+def setRamp(patterns, status: bool):
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 31, 31, int(status))
+    return patterns
+
+def setRampMode(patterns, mode: RampMode):
+    patterns['PIN3'] = overwrite(patterns['PIN3'], 11, 10, int(mode))
+    return patterns
+
+def setMuxout(patterns, mode: Muxout):
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 30, 27, int(mode))
+    return patterns
+
+def setRampAttribute(patterns, clk=None, dev=None, devOffset=None, steps=None):
+    """
+    :param clk: CLK_2 devider value at range [0, 4095]
+
+    :param dev: Deviation words at range [-32768, 32767]
+
+    :param devOffset: Deviation offset at range [0, 9]
+
+    :param steps: Step words at range [0, 1048575]
+
+    :return patterns
+    """
+
+    if clk is not None:
+        assert(clk >= 0 and clk <= 4095)
+        patterns['PIN4']  = overwrite(patterns['PIN4'], 18, 7, clk)
+
+    if dev is not None:
+        assert(dev >= -32768 and dev <= 32767)
+        patterns['PIN5A'] = overwrite(patterns['PIN5A'], 18, 3, dev)
+
+    if devOffset is not None:
+        assert(devOffset >= 0 and devOffset <= 9)
+        patterns['PIN5A'] = overwrite(patterns['PIN5A'], 22, 19, devOffset)
+
+    if steps is not None:
+        assert(steps >= 0 and steps <= 1048575)
+        patterns['PIN6A'] = overwrite(patterns['PIN6A'], 22, 3, steps)
+
+    return patterns
+
+def setPumpSetting(patterns, current):
+    """
+    :param current: must be the times of 0.3125 and at range [0.3125, 16 x 0.3125 = 5.0]
+    """
+    assert((current / 0.3125) == (current // 0.3125))
+
+    current = int(current // 0.3125) - 1
+    
+    assert(current >= 0 and current <= 15)
+
+    patterns['PIN2'] = overwrite(patterns['PIN2'], 27, 24, current)
+    return patterns
+
+def setCenterFrequency(patterns, freq, ref=10):
+    """
+    $$
+    RF_{out} = f_{PFD} \times (\text{INT} + ( \frac{ \text{FRAC} }{ 2 ^ {25} } ))
+    $$
+
+    where
+    $$
+    f_{PFD} = \text{REF_{IN}} \times ( \frac{(1 + D)} { R \times (1 + T) })
+    $$
+
+    :param freq: Center frequency (MHz)
+
+    :param span: Reference clock
+    """
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 26, 15, freq // ref)
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, (freq % ref) << 12)
+    patterns['PIN1'] = overwrite(patterns['PIN0'], 27, 15, ((freq % ref) << 25) % (1 << 13))
+    
+    return patterns
+
 # TODO
 def setModulationInterval(tm=None, fm=None):
     """
@@ -143,60 +283,6 @@ def setModulationInterval(tm=None, fm=None):
     :param fm:
     """
     return
-
-# TODO
-def setDeviationRegister():
-    return
-
-# TODO
-def setStepRegister(step1, step2):
-    return
-
-# TODO
-def setDelayRegister():
-    return 
-
-# TODO
-def setPLL():
-    return
-
-# TODO
-def initADF4851():
-    """ 
-    Initial ADF4851 Signal Generator
-
-    1. Delay register (R7)
-    2. Step register (R6)
-       load the step register (R6) twice, first with STEP SEL = 0 and then with STEP SEL = 1
-    3. Deviation register (R5)
-       load the deviation register (R5) twice, first with DEV SEL = 0 and then with DEV SEL = 1
-    4. Test register (R4)
-    5. Function register (R3)
-    6. R-divider register (R2)
-    7. LSB FRAC register (R1)
-    8. FRAC/INT register (R0)
-
-    .. References:
-        (Datasheet p.25)
-    """
-    
-    initGPIOPins()
-    setReady()
-
-    return True
-
-def test_singleFreq():
-    """ Unittest: send single freq. control words """
-    sendWord(0x00000007)
-    sendWord(0x00000006)
-    sendWord(0x00800006)
-    sendWord(0x00000005)
-    sendWord(0x00800005)
-    sendWord(0x00180104)
-    sendWord(0x00000043)
-    sendWord(0x0040800A)
-    sendWord(0x00000001)
-    sendWord(0x01220000)
 
 def test_triangle():
     """ Unittest: send ramp freq. control words """
@@ -215,8 +301,7 @@ def main():
     initADF4851()
 
     while True:
-        test_singleFreq()
-        # test_triangle()
+        test_triangle()
 
     return
 
