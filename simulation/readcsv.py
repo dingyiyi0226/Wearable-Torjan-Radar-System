@@ -1,5 +1,7 @@
 import csv
 import math
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import random as rd
@@ -11,12 +13,12 @@ def roundto(num, tick):
     else:
         return math.ceil(num/tick) * tick
 
-def readcsv(filename):
+def readcsv(filename, today):
     """return signal list and simulation data frequency"""
 
     signal = []
-    today = '0225-2'
-    with open('./rawdata/{}/{}.csv'.format(today, filename)) as file:
+    # today = '0225fm05'
+    with open('./rawdata/{}/{}'.format(today, filename)) as file:
         datas = csv.reader(file)
         simFreq = 0
         for ind, data in enumerate(datas):
@@ -28,12 +30,12 @@ def readcsv(filename):
             else:
                 signal.append(float(data[1]))
     # print(len(signal))
-    return signal, simFreq, today
+    return signal, simFreq
 
-def plotSingleFile(filename):
+def plotSingleFile(today, filename):
     """ plot time domain signal and fft signal """
 
-    y, fs, today = readcsv(filename)
+    y, fs = readcsv(filename, today)
     print('-----------------------------')
     print('read {} file'.format(filename))
     N = len(y)                          ## number of simulation data points
@@ -115,7 +117,7 @@ def plotSingleFile(filename):
     plt.show()
     """
 
-def plotMultipleFile(filenames):
+def plotMultipleFile(today, filenames):
     """ plot fft signal for each file """
 
     fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
@@ -127,7 +129,7 @@ def plotMultipleFile(filenames):
 
     for pltind, filename in enumerate(filenames):
 
-        y, fs, today = readcsv(filename)
+        y, fs = readcsv(filename, today)
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
@@ -163,7 +165,7 @@ def plotMultipleFile(filenames):
         # print(ax[pltind])
 
         ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],offsetyfn[:max_freq_index], color='red')
-        peaks, _ = sg.find_peaks(offsetyfn[:max_freq_index], height = 0.015)
+        peaks, _ = sg.find_peaks(offsetyfn[:max_freq_index], height = 0.02)
 
         # ax[pltind//3, pltind%3].plot(peaks*min_freq_diff,[ offsetyfn[i] for i in peaks], marker='x')
         peakList = []
@@ -174,6 +176,7 @@ def plotMultipleFile(filenames):
 
         ax[pltind//3, pltind%3].set_title(filename+' cm')
         # ax[pltind//3, pltind%3].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
         if removeBG:
             ax[pltind//3, pltind%3].set_ylim((-0.03, 0.1))
         else:
@@ -240,7 +243,7 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
 
     return freqList
 
-def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
+def plotExpAndTheo(today, filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
     """ plot experimental value and theoretical value """
 
     freqList = []
@@ -251,7 +254,7 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
 
     for pltind, filename in enumerate(filenames):
 
-        y, fs, today = readcsv(filename)
+        y, fs = readcsv(filename, today)
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
@@ -275,7 +278,7 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
         ## remove aliasing of image frequency and DC
 
         for i in range(len(yfn)//4,len(yfn)):
-            print(i)
+            # print(i)
             yfn[i]=0
         yfn[0]=0
 
@@ -312,7 +315,7 @@ def plotExpAndTheo(filenames, distanceList, distanceOffset, BW, tm, simTime, rou
 
     plt.show()
 
-def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
+def plotHeatmap(today, filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
     """ plot fft signal at each distance in heatmap """
 
     freqData = []
@@ -321,14 +324,14 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
     heatmapXWidth=600//len(distanceList)  ## pixels of x axis
 
     # remove background
-    removeBG = True
+    removeBG = False
 
     # normalize frequency amplitude
     normalizeFreq = True
 
     for pltind, filename in enumerate(filenames):
 
-        y, fs, today = readcsv(filename)
+        y, fs = readcsv(filename, today)
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
@@ -420,53 +423,24 @@ def plotHeatmap(filenames, distanceList, distanceOffset, BW, tm, simTime, roundu
 
 def main():
 
-    ## 0220 files
+    today = '0225fm05'
 
-    # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    # filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
+    filenames.sort()
 
-    ## 0221 files
+    distanceList = [float(i[:-5])/100 for i in filenames]
 
-    # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751']
-    # filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752']
-    # filenames = ['3001','3251','3501','3751','4001','4251','4501','4751','5001']
-    # filenames = ['3002','3252','3502','3752','4002','4252','4502','4752','5002']
-    # filenames = ['0001','0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001','3251', '3501','3751','4001','4251','4501','4751','5001']
-    filenames = ['0002','0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252', '3502','3752','4002','4252','4502','4752','5002']
-   
-    ## 0222 files
-
-    # filenames = ['0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
-
-    ## 0223 files
-
-    # filenames = ['0251','0501','0751','1001','1251','1501','1751','2001','2251','2501','2751','3001']
-    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002']
-    # filenames = ['3251','3501','3751','4001','4251','4501','4751','5001','5251','5501','5751','6001']
-    # filenames = ['3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
-    # filenames = ['0252','0502','0752','1002','1252','1502','1752','2002','2252','2502','2752','3002','3252','3502','3752','4002','4252','4502','4752','5002','5252','5502','5752','6002']
-
-    ## 0225 files
-    # filenames = [ str(i) + '1' for i in range(0, 5.75, 0.25) ]
-    # filenames = [ str(i) + '2' for i in range(0, 5.75, 0.25) ]
-
-
-    distanceList = np.arange(0, 5.55, 0.25)
-
-    filenames = [ str(int(i * 100)).zfill(3) + '2' for i in distanceList ]
-
-    # plotSingleFile('4252')
-    # plotMultipleFile(filenames)
+    # plotSingleFile(today, '4252')
+    plotMultipleFile(today, filenames)
 
     # plotTheoretical(distanceList, distanceOffset=10*2.24**0.5,
-    #                 BW=99.9969e6, tm=2048e-6, simTime=24e-3, roundup=True)
+    #                 BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
 
-    # plotExpAndTheo(filenames, distanceList, distanceOffset=10*2.24**0.5,
+    # plotExpAndTheo(today, filenames, distanceList, distanceOffset=10*2.24**0.5,
     #                BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
 
-    plotHeatmap(filenames, distanceList, distanceOffset=10*2.24**0.5,
-                BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
+    # plotHeatmap(today, filenames, distanceList, distanceOffset=10*2.24**0.5,
+    #             BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
 
 
 if __name__ == '__main__':
