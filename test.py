@@ -8,6 +8,9 @@ class TestBitModifyMethod(unittest.TestCase):
         self.assertEqual(bitMask(16), 0x00010000)
 
     def test_mask(self):
+        self.assertEqual(mask( 0, 0), 0x00000001)
+        self.assertEqual(mask( 1, 0), 0x00000003)
+        self.assertEqual(mask( 3, 2), 0x0000000C)
         self.assertEqual(mask(11, 3), 0x00000FF8)
     
     def test_overwrite(self):
@@ -20,7 +23,9 @@ class TestBitModifyMethod(unittest.TestCase):
 
         patterns = setRamp(patterns, True)
         patterns = setRampMode(patterns, RampMode.CONT_TRIANGULAR)
-        patterns = setRampAttr(patterns, clk=2, dev=0, devOffset=1, steps=5120)
+        patterns = setRampAttribute(patterns, clk=2, dev=32767, devOffset=1, steps=5120)
+        patterns = setPumpSetting(patterns, current=2.5)
+        patterns = setCenterFrequency(patterns, freq=5750, ref=10)
 
         self.assertEqual(patterns['PIN7'],  0x00000007)
         self.assertEqual(patterns['PIN6A'], 0x0000A006)
@@ -35,4 +40,4 @@ class TestBitModifyMethod(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    main()
+    unittest.main()

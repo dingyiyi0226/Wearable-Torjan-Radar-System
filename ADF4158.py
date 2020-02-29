@@ -98,10 +98,10 @@ def bitMask(pos):
 
 def mask(start, end=0):
     """ 0...011...1 Mask. """
-    return (1 << start) - (1 << end)
+    return (1 << (start + 1)) - (1 << (end))
 
 def overwrite(value, start, end, newValue):
-    return (value & mask(start, end)) | (newValue << end)
+    return (value & (~mask(start, end))) | (newValue << end)
 
 def setReadyToWrite():
     GPIO.output(W_CLK, False)
@@ -203,15 +203,14 @@ def setRamp(patterns, status: bool):
     return patterns
 
 def setRampMode(patterns, mode: RampMode):
-    patterns['PIN3'] = overwrite(patterns['PIN3'], 11, 9, int(mode))
+    patterns['PIN3'] = overwrite(patterns['PIN3'], 11, 10, int(mode))
     return patterns
 
 def setMuxout(patterns, mode: Muxout):
     patterns['PIN0'] = overwrite(patterns['PIN0'], 30, 27, int(mode))
     return patterns
 
-# TODO
-def setRampAttr(patterns, clk=None, dev=None, devOffset=None, steps=None):
+def setRampAttribute(patterns, clk=None, dev=None, devOffset=None, steps=None):
     """
     :param clk: CLK_2 devider value at range [0, 4095]
 
@@ -242,8 +241,38 @@ def setRampAttr(patterns, clk=None, dev=None, devOffset=None, steps=None):
 
     return patterns
 
-# TODO
 def setPumpSetting(patterns, current):
+    """
+    :param current: must be the times of 0.3125 and at range [0.3125, 16 x 0.3125 = 5.0]
+    """
+    assert((current / 0.3125) == (current // 0.3125))
+
+    current = int(current // 0.3125) - 1
+    
+    assert(current >= 0 and current <= 15)
+
+    patterns['PIN2'] = overwrite(patterns['PIN2'], 27, 24, current)
+    return patterns
+
+def setCenterFrequency(patterns, freq, ref=10):
+    """
+    $$
+    RF_{out} = f_{PFD} \times (\text{INT} + ( \frac{ \text{FRAC} }{ 2 ^ {25} } ))
+    $$
+
+    where
+    $$
+    f_{PFD} = \text{REF_{IN}} \times ( \frac{(1 + D)} { R \times (1 + T) })
+    $$
+
+    :param freq: Center frequency (MHz)
+
+    :param span: Reference clock
+    """
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 26, 15, freq // ref)
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, (freq % ref) << 12)
+    patterns['PIN1'] = overwrite(patterns['PIN0'], 27, 15, ((freq % ref) << 25) % (1 << 13))
+    
     return patterns
 
 # TODO
