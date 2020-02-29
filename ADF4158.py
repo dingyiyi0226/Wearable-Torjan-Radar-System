@@ -29,8 +29,8 @@ GPIO.setwarnings(False)
 W_CLK  = 12     # T4
 DATA   = 16     # T5
 LE     = 18     # T6
-TXDATA = 15     # T16
-MUXOUT = 17     # T8
+TXDATA = 13     # T16
+MUXOUT = 15     # T8
 
 @unique
 class Clock(IntEnum):
@@ -96,8 +96,7 @@ def setReady():
     GPIO.output(DATA, False)
     GPIO.output(LE, False)
 
-# TODO
-@verbose
+# @verbose
 def sendWord(word, clk=Clock.RISING_EDGE):
     """
     :param word: 32-bits information
@@ -106,12 +105,19 @@ def sendWord(word, clk=Clock.RISING_EDGE):
     """
     
     # Raise Clock after setup DATA 
-    for i in range(31, -1, -1):
-        GPIO.output(DATA, word[i])
+    for i in range(31, 0, -1):
+        GPIO.output(DATA, bool((word >> i) % 2))
         pulseHigh(W_CLK)
 
+    # Last bit
+    GPIO.output(DATA, bool(word % 2))
+    GPIO.output(W_CLK, True)
+    GPIO.output(LE, True)
+    GPIO.output(W_CLK, False)
+    GPIO.output(LE, False)
+
     # Raise LE
-    pulseHigh(LE)
+    # pulseHigh(LE)
 
     # Reset Data as 0
     GPIO.output(DATA, False)
@@ -215,8 +221,8 @@ def main():
     initADF4851()
 
     while True:
-        test_singleFreq()
-        # test_triangle()
+        # test_singleFreq()
+        test_triangle()
 
     return
 
