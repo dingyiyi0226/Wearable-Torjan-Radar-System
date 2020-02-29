@@ -39,13 +39,13 @@ def plotSingleFile(today, filename):
     print('-----------------------------')
     print('read {} file'.format(filename))
     N = len(y)                          ## number of simulation data points
-    min_freq_diff = fs/N                ## spacing between two freqencies on axis
+    minFreqDiff = fs/N                ## spacing between two freqencies on axis
     print('N =', N)
     print('fs =', fs)
-    print('min_freq_diff =',min_freq_diff)
+    print('minFreqDiff =',minFreqDiff)
 
     t_axis = [i/fs for i in range(N)]
-    f_axis = [i*min_freq_diff for i in range(N)]
+    f_axis = [i*minFreqDiff for i in range(N)]
 
     yf = abs(np.fft.fft(y))
     # yfs = np.fft.fftshift(yf)         ## shift 0 frequency to middle
@@ -59,31 +59,44 @@ def plotSingleFile(today, filename):
     plt.figure('Figure')
     plt.suptitle(today)
 
-    plt.subplot(211)
+    plt.subplot(311)
     plt.plot(t_axis, y)
-    plt.title('Signal of '+filename+' cm')
+    plt.title('Signal of '+filename[:-4]+' cm')
     plt.xlabel('time (s)')
     plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
 
-    plt.subplot(212)
+    plt.subplot(312)
 
-    max_freq = (len(f_axis)//2)*min_freq_diff
+    max_freq = (len(f_axis)//2)*minFreqDiff
     # max_freq = 5e5
-    max_freq_index = int(max_freq/min_freq_diff)
+    max_freq_index = int(max_freq/minFreqDiff)
 
     plt.plot(f_axis[:max_freq_index],yfn[:max_freq_index], 'r')
     peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.01)
 
-    plt.plot(peaks*min_freq_diff,[ yfn[i] for i in peaks], 'x')
+    plt.plot(peaks*minFreqDiff,[ yfn[i] for i in peaks], 'x')
     peakList = []
     for ind, i in enumerate(peaks):
-        plt.annotate(s=int(peaks[ind]*min_freq_diff), xy=(peaks[ind]*min_freq_diff,yfn[i]))
-        print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*min_freq_diff), yfn[i]))
-        peakList.append( (int(peaks[ind]*min_freq_diff), yfn[i]) )
+        plt.annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,yfn[i]))
+        print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), yfn[i]))
+        peakList.append( (int(peaks[ind]*minFreqDiff), yfn[i]) )
 
     plt.title('FFT')
     plt.xlabel('freq (Hz)')
     plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+
+    plt.subplot(313)
+
+    plt.title('average')
+    plt.xlabel('freq (Hz)')
+
+    avgTick = 3
+    assumeFm = 250
+    avgLength = int(assumeFm/minFreqDiff*avgTick)
+    avgyfn = sg.oaconvolve(yfn, np.ones(avgLength)/avgLength, mode='same')
+
+    plt.plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], 'r')
+
 
     plt.subplots_adjust(hspace=0.5)
     plt.show()
@@ -117,15 +130,12 @@ def plotSingleFile(today, filename):
     plt.show()
     """
 
-def plotMultipleFile(today, filenames):
+def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
     """ plot fft signal for each file """
 
     fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
 
     refyfn=[]
-
-    # remove background
-    removeBG = False
 
     for pltind, filename in enumerate(filenames):
 
@@ -133,13 +143,13 @@ def plotMultipleFile(today, filenames):
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
-        min_freq_diff = fs/N                ## spacing between two freqencies on axis
+        minFreqDiff = fs/N                ## spacing between two freqencies on axis
         print('N =', N)
         print('fs =', fs)
-        print('min_freq_diff =',min_freq_diff)
+        print('minFreqDiff =',minFreqDiff)
 
         t_axis = [i/fs for i in range(N)]
-        f_axis = [i*min_freq_diff for i in range(N)]
+        f_axis = [i*minFreqDiff for i in range(N)]
 
         yf = abs(np.fft.fft(y))
         # yfs = np.fft.fftshift(yf)         ## shift 0 frequency to middle
@@ -150,9 +160,11 @@ def plotMultipleFile(today, filenames):
         yfn = [i*2/N for i in yf]           ## normalization
                                             ## let the amplitude of output signal equals to inputs
 
-        max_freq = (len(f_axis)//2)*min_freq_diff
+        max_freq = (len(f_axis)//2)*minFreqDiff
         # max_freq = 5e5
-        max_freq_index = int(max_freq/min_freq_diff)
+        max_freq_index = int(max_freq/minFreqDiff)
+
+        ## remove background signal
 
         offsetyfn = yfn
 
@@ -160,36 +172,58 @@ def plotMultipleFile(today, filenames):
             if pltind==0:
                 refyfn=yfn
             else:
-                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
 
-        # print(ax[pltind])
+        ## normalize siganl amplitude for different distance
 
-        ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],offsetyfn[:max_freq_index], color='red')
-        peaks, _ = sg.find_peaks(offsetyfn[:max_freq_index], height = 0.02)
+        normalizeyfn = offsetyfn
 
-        # ax[pltind//3, pltind%3].plot(peaks*min_freq_diff,[ offsetyfn[i] for i in peaks], marker='x')
+        if normalizeFreq:
+            normalizeyfn = [i*(pltind*0.25)**1 for i in offsetyfn]
+
+        ## take average of frequencies
+
+        avgyfn = normalizeyfn
+
+        if avgFreq:
+            avgTick = 3
+            assumeFm = 250
+            avgLength = int(assumeFm/minFreqDiff*avgTick)
+            avgyfn = sg.oaconvolve(normalizeyfn, np.ones(avgLength)/avgLength, mode='same')
+
+
+        ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], color='red')
+        peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02)
+
+        # ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], marker='x')
         peakList = []
         for ind, i in enumerate(peaks):
-            ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*min_freq_diff), xy=(peaks[ind]*min_freq_diff,offsetyfn[i]))
-            print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*min_freq_diff), offsetyfn[i]))
-            peakList.append( (int(peaks[ind]*min_freq_diff), offsetyfn[i]) )
+            ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,normalizeyfn[i]))
+            print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), normalizeyfn[i]))
+            peakList.append( (int(peaks[ind]*minFreqDiff), normalizeyfn[i]) )
 
-        ax[pltind//3, pltind%3].set_title(filename+' cm')
-        # ax[pltind//3, pltind%3].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+        ax[pltind//3, pltind%3].set_title(filename[:-4]+' cm')
 
-        if removeBG:
-            ax[pltind//3, pltind%3].set_ylim((-0.03, 0.1))
-        else:
-            ax[pltind//3, pltind%3].set_ylim((0, 0.1))
+        # if removeBG:
+        #     ax[pltind//3, pltind%3].set_ylim((-0.03, 0.05))
+        # else:
+        #     ax[pltind//3, pltind%3].set_ylim((0, 0.1))
 
+    title = today
     if removeBG:
-        fig.suptitle(today+' remove background')
-    else:
-        fig.suptitle(today)
+        title+=' remove background'
+    if normalizeFreq:
+        title+=' normalizeFreq'
+    if avgFreq:
+        title+=' avgFreq'
+
+    fig.suptitle(title)
+
     fig.subplots_adjust(hspace=0.6)
     plt.show()
 
-def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=True):
+def plotTheoretical(distanceList, setting, roundup, doPlot=True):
     """ plot threoretical frequency
        
          _ ↑
@@ -205,9 +239,15 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
 
     """
 
-    fm = 1/tm
-    slope = BW/tm*2
-    freqRes = 1/simTime
+    distanceOffset = setting['distanceOffset']
+    # BW = setting['BW']
+    # tm = setting['tm']
+    # simTime = setting['simTime']
+
+
+    fm = 1/setting['tm']
+    slope = setting['BW']/setting['tm']*2
+    freqRes = 1/setting['simTime']
 
     print('fm', fm)
     print('freqRes', freqRes)
@@ -243,14 +283,11 @@ def plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPl
 
     return freqList
 
-def plotExpAndTheo(today, filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
-    """ plot experimental value and theoretical value """
+def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, avgFreq):
+    """ plot experimental peak value and theoretical value """
 
     freqList = []
     refyfn=[]
-
-    # remove background
-    removeBG = True
 
     for pltind, filename in enumerate(filenames):
 
@@ -258,7 +295,7 @@ def plotExpAndTheo(today, filenames, distanceList, distanceOffset, BW, tm, simTi
         print('-----------------------------')
         print('read {} file'.format(filename))
         N = len(y)                          ## number of simulation data points
-        minFreqDiff = fs/N                ## spacing between two freqencies on axis
+        minFreqDiff = fs/N                  ## spacing between two freqencies on axis
         print('N =', N)
         print('fs =', fs)
         print('minFreqDiff =',minFreqDiff)
@@ -286,48 +323,60 @@ def plotExpAndTheo(today, filenames, distanceList, distanceOffset, BW, tm, simTi
         # max_freq = 5e5
         max_freq_index = int(max_freq/minFreqDiff)
 
+        ## remove background signal
+
         offsetyfn = yfn
 
         if removeBG:
             if pltind==0:
                 refyfn=yfn
             else:
-                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
 
+        if avgFreq:
+            avgTick = 3
+            fm = 1/setting['tm']
+            avgLength = int(fm/minFreqDiff*avgTick)
+            avgyfn = sg.oaconvolve(offsetyfn, np.ones(avgLength)/avgLength, mode='same').tolist()
+            freqList.append(f_axis[avgyfn.index(max(avgyfn[:max_freq_index]))])
+        else:
+            freqList.append(f_axis[offsetyfn.index(max(offsetyfn[:max_freq_index]))])
 
-        freqList.append(f_axis[offsetyfn.index(max(offsetyfn[:max_freq_index]))])
 
     print('freqList:', freqList)
 
-    theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
+    theoFreqList = plotTheoretical(distanceList, setting, roundup, doPlot=False)
 
     plt.figure('Figure')
-    plt.title(today)
-    plt.plot(distanceList, freqList, label='exp')
-    plt.plot(distanceList, theoFreqList, label='theo')
+
+    title = today
+    if removeBG:
+        title+=' remove background'
+    if avgFreq:
+        title+=' avgFreq'
+    plt.suptitle(title)
+
+    plt.plot(distanceList[1:], freqList[1:], label='exp')
+    plt.plot(distanceList[1:], theoFreqList[1:], label='theo')
     # plt.scatter(distanceList, freqList, label='exp')
     # plt.scatter(distanceList, theoFreqList, label='theo')
     plt.xlabel('Distance (m)')
     plt.ylabel('Frequency (Hz)')
-    plt.xticks(distanceList)
+    plt.xticks(distanceList[::3])
     plt.legend()
     plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
+    plt.grid(True)
     plt.show()
 
-def plotHeatmap(today, filenames, distanceList, distanceOffset, BW, tm, simTime, roundup):
+def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, normalizeFreq, avgFreq):
     """ plot fft signal at each distance in heatmap """
 
     freqData = []
     refyfn=[]
 
     heatmapXWidth=600//len(distanceList)  ## pixels of x axis
-
-    # remove background
-    removeBG = False
-
-    # normalize frequency amplitude
-    normalizeFreq = True
 
     for pltind, filename in enumerate(filenames):
 
@@ -357,37 +406,55 @@ def plotHeatmap(today, filenames, distanceList, distanceOffset, BW, tm, simTime,
         # max_freq = 5e5
         max_freq_index = int(max_freq/minFreqDiff)
 
-        offsetyfn = yfn
+        ## remove background signal
 
+        offsetyfn = yfn
         if removeBG:
             if pltind==0:
                 refyfn=yfn
             else:
-                offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
+
+        ## normalize siganl amplitude for different distance
 
         normalizeyfn = offsetyfn
 
         if normalizeFreq:
             normalizeyfn = [i*(pltind*0.25)**1 for i in offsetyfn]
 
+        ## take average of frequencies
+
+        avgyfn = normalizeyfn
+
+        if avgFreq:
+            avgTick = 3
+            fm = 1/setting['tm']
+            avgLength = int(fm/minFreqDiff*avgTick)
+            avgyfn = sg.oaconvolve(normalizeyfn, np.ones(avgLength)/avgLength, mode='same')
+
+
         for i in range(heatmapXWidth):
-            freqData.append(np.flip(normalizeyfn[:max_freq_index]))
+            freqData.append(np.flip(avgyfn[:max_freq_index]))
 
     # print(freqList)
     freqDataNp = np.array(freqData).transpose()
-
-    theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
 
     xtickPos = [i for i in range(heatmapXWidth*len(distanceList)) if i%heatmapXWidth==heatmapXWidth//2]
     xtickSample = 3
     ytickcnt = 16
 
-    fig, ax=  plt.subplots(1,2, num='Figure', figsize=(10,5))
+    fig, ax = plt.subplots(1,2, num='Figure', figsize=(10,5))
 
+    title = today
     if removeBG:
-        fig.suptitle(today+' remove background')
-    else:
-        fig.suptitle(today)
+        title+=' remove background'
+    if normalizeFreq:
+        title+=' normalizeFreq'
+    if avgFreq:
+        title+=' avgFreq'
+
+    fig.suptitle(title)
 
     ax[0].set_title('Experiment')
     ax[0].imshow(freqDataNp, cmap='gray')
@@ -412,7 +479,7 @@ def plotHeatmap(today, filenames, distanceList, distanceOffset, BW, tm, simTime,
     ax[1].set_yticks(np.linspace(0,max_freq_index,ytickcnt))
     ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, ytickcnt, dtype=int)))
 
-    theoFreqList = plotTheoretical(distanceList, distanceOffset, BW, tm, simTime, roundup, doPlot=False)
+    theoFreqList = plotTheoretical(distanceList, setting, roundup, doPlot=False)
     ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoFreqList], 'r')
 
 
@@ -423,24 +490,30 @@ def plotHeatmap(today, filenames, distanceList, distanceOffset, BW, tm, simTime,
 
 def main():
 
-    today = '0225fm05'
+    DELAYLINE = 10*2.24**0.5
+
+    today = '0225hornfm05'
+    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':0}
+
 
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
     filenames.sort()
 
+    # filenames = filenames[:12]
+
     distanceList = [float(i[:-5])/100 for i in filenames]
 
-    # plotSingleFile(today, '4252')
-    plotMultipleFile(today, filenames)
 
-    # plotTheoretical(distanceList, distanceOffset=10*2.24**0.5,
-    #                 BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
+    # plotSingleFile(today, '1001.csv')
+    # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=True)
 
-    # plotExpAndTheo(today, filenames, distanceList, distanceOffset=10*2.24**0.5,
-    #                BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
+    # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
 
-    # plotHeatmap(today, filenames, distanceList, distanceOffset=10*2.24**0.5,
-    #             BW=99.9969e6, tm=4096e-6, simTime=24e-3, roundup=True)
+    plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
+                   roundup=True, removeBG=True, avgFreq=True)
+
+    plotHeatmap(today, filenames, distanceList, setting=todaySetting,
+                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
 
 
 if __name__ == '__main__':
