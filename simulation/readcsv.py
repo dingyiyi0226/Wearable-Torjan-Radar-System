@@ -94,12 +94,13 @@ def plotSingleFile(today, filename):
     AVGTICK = 3
     assumeFm = 250
     avgLength = int(assumeFm/minFreqDiff*AVGTICK)
-    window = np.ones(avgLength)/avgLength
-    avgyfn = sg.oaconvolve(yfn, window, mode='same')
+    window = np.ones(avgLength)
+    # window = sg.gaussian(avgLength, std=int(assumeFm/minFreqDiff))
+    avgyfn = sg.oaconvolve(yfn, window/window.sum(), mode='same')
 
     plt.plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], 'r')
 
-    maxIndex = avgyfn[:max_freq_index].argmax()
+    maxIndex = avgyfn[:max_freq_index//2].argmax()
     plt.plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
     plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
@@ -205,20 +206,21 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             AVGTICK = 3
             assumeFm = 250
             avgLength = int(assumeFm/minFreqDiff*AVGTICK)
-            window = np.ones(avgLength)/avgLength
-            avgyfn = sg.oaconvolve(normalizeyfn, window, mode='same')
+            window = np.ones(avgLength)
+            # window = sg.gaussian(avgLength, std=int(assumeFm/minFreqDiff))
+            avgyfn = sg.oaconvolve(normalizeyfn, window/window.sum(), mode='same')
 
         ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], color='red')
 
         if avgFreq:
-            maxIndex = avgyfn[:max_freq_index].argmax()
+            maxIndex = avgyfn[:max_freq_index//2].argmax()
             ax[pltind//3, pltind%3].plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
         else:
             peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02)
 
-            # ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], marker='x')
+            ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], 'x')
             peakList = []
             for ind, i in enumerate(peaks):
                 ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,normalizeyfn[i]))
@@ -359,7 +361,7 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
                 offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
 
         if avgFreq:
-            AVGTICK = 3
+            AVGTICK = 4
             fm = 1/setting['tm']
             avgLength = int(fm/minFreqDiff*AVGTICK)
             window = np.ones(avgLength)
@@ -533,7 +535,7 @@ def main():
     distanceList = [float(i[:-5])/100 for i in filenames]
 
 
-    # plotSingleFile(today, '0002.csv')
+    # plotSingleFile(today, '2502.csv')
     # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
