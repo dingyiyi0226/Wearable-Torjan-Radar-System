@@ -80,6 +80,7 @@ def plotSingleFile(today, filename):
         plt.annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,yfn[i]))
         print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), yfn[i]))
         peakList.append( (int(peaks[ind]*minFreqDiff), yfn[i]) )
+    print()
 
     plt.title('FFT')
     plt.xlabel('freq (Hz)')
@@ -90,15 +91,29 @@ def plotSingleFile(today, filename):
     plt.title('average')
     plt.xlabel('freq (Hz)')
 
-    avgTick = 3
+    AVGTICK = 3
     assumeFm = 250
-    avgLength = int(assumeFm/minFreqDiff*avgTick)
-    avgyfn = sg.oaconvolve(yfn, np.ones(avgLength)/avgLength, mode='same')
+    avgLength = int(assumeFm/minFreqDiff*AVGTICK)
+    window = np.ones(avgLength)/avgLength
+    avgyfn = sg.oaconvolve(yfn, window, mode='same')
 
     plt.plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], 'r')
 
+    maxIndex = avgyfn[:max_freq_index].argmax()
+    plt.plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
+    plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
-    plt.subplots_adjust(hspace=0.5)
+    # avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.005)
+
+    # plt.plot(avgPeaks*minFreqDiff,[ avgyfn[i] for i in avgPeaks], 'x')
+    # avgPeakList = []
+    # for ind, i in enumerate(avgPeaks):
+    #     plt.annotate(s=int(avgPeaks[ind]*minFreqDiff), xy=(avgPeaks[ind]*minFreqDiff,avgyfn[i]))
+    #     print('avgPeaks at: {} Hz, amplitude = {}'.format(int(avgPeaks[ind]*minFreqDiff), avgyfn[i]))
+    #     avgPeakList.append( (int(avgPeaks[ind]*minFreqDiff), avgyfn[i]) )
+    # print()
+
+    plt.subplots_adjust(hspace=0.9)
     plt.show()
 
     """
@@ -133,7 +148,7 @@ def plotSingleFile(today, filename):
 def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
     """ plot fft signal for each file """
 
-    fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, num='Figure Name')  ## num is **kw_fig
+    fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
 
     refyfn=[]
 
@@ -187,23 +202,32 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
         avgyfn = normalizeyfn
 
         if avgFreq:
-            avgTick = 3
+            AVGTICK = 3
             assumeFm = 250
-            avgLength = int(assumeFm/minFreqDiff*avgTick)
-            avgyfn = sg.oaconvolve(normalizeyfn, np.ones(avgLength)/avgLength, mode='same')
-
+            avgLength = int(assumeFm/minFreqDiff*AVGTICK)
+            window = np.ones(avgLength)/avgLength
+            avgyfn = sg.oaconvolve(normalizeyfn, window, mode='same')
 
         ax[pltind//3, pltind%3].plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], color='red')
-        peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02)
 
-        # ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], marker='x')
-        peakList = []
-        for ind, i in enumerate(peaks):
-            ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,normalizeyfn[i]))
-            print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), normalizeyfn[i]))
-            peakList.append( (int(peaks[ind]*minFreqDiff), normalizeyfn[i]) )
+        if avgFreq:
+            maxIndex = avgyfn[:max_freq_index].argmax()
+            ax[pltind//3, pltind%3].plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
+            ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
+
+        else:
+            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02)
+
+            # ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], marker='x')
+            peakList = []
+            for ind, i in enumerate(peaks):
+                ax[pltind//3, pltind%3].annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,normalizeyfn[i]))
+                print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), normalizeyfn[i]))
+                peakList.append( (int(peaks[ind]*minFreqDiff), normalizeyfn[i]) )
 
         ax[pltind//3, pltind%3].set_title(filename[:-4]+' cm')
+        ax[pltind//3, pltind%3].tick_params(bottom=False, labelbottom=False)
+        ax[pltind//3, pltind%3].ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
         # if removeBG:
         #     ax[pltind//3, pltind%3].set_ylim((-0.03, 0.05))
@@ -220,7 +244,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
 
     fig.suptitle(title)
 
-    fig.subplots_adjust(hspace=0.6)
+    fig.subplots_adjust(hspace=0.8)
     plt.show()
 
 def plotTheoretical(distanceList, setting, roundup, doPlot=True):
@@ -335,11 +359,13 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
                 offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
 
         if avgFreq:
-            avgTick = 3
+            AVGTICK = 3
             fm = 1/setting['tm']
-            avgLength = int(fm/minFreqDiff*avgTick)
-            avgyfn = sg.oaconvolve(offsetyfn, np.ones(avgLength)/avgLength, mode='same').tolist()
-            freqList.append(f_axis[avgyfn.index(max(avgyfn[:max_freq_index]))])
+            avgLength = int(fm/minFreqDiff*AVGTICK)
+            window = np.ones(avgLength)
+            # window = sg.gaussian(avgLength, std=int(fm/minFreqDiff))
+            avgyfn = sg.oaconvolve(offsetyfn, window/window.sum(), mode='same')
+            freqList.append(f_axis[avgyfn[:max_freq_index].argmax()])
         else:
             freqList.append(f_axis[offsetyfn.index(max(offsetyfn[:max_freq_index]))])
 
@@ -428,10 +454,12 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
         avgyfn = normalizeyfn
 
         if avgFreq:
-            avgTick = 3
+            AVGTICK = 3
             fm = 1/setting['tm']
-            avgLength = int(fm/minFreqDiff*avgTick)
-            avgyfn = sg.oaconvolve(normalizeyfn, np.ones(avgLength)/avgLength, mode='same')
+            avgLength = int(fm/minFreqDiff*AVGTICK)
+            window = np.ones(avgLength)
+            # window = sg.gaussian(avgLength, std=int(fm/minFreqDiff*0.5))
+            avgyfn = sg.oaconvolve(normalizeyfn, window/window.sum(), mode='same')
 
 
         for i in range(heatmapXWidth):
@@ -441,8 +469,9 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     freqDataNp = np.array(freqData).transpose()
 
     xtickPos = [i for i in range(heatmapXWidth*len(distanceList)) if i%heatmapXWidth==heatmapXWidth//2]
-    xtickSample = 3
-    ytickcnt = 16
+
+    XTICKSAMPLE = 3
+    YTICKCNT = 16
 
     fig, ax = plt.subplots(1,2, num='Figure', figsize=(10,5))
 
@@ -460,12 +489,12 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     ax[0].imshow(freqDataNp, cmap='gray')
 
     ax[0].set_xlabel('Distance (m)')
-    ax[0].set_xticks(xtickPos[::xtickSample])
-    ax[0].set_xticklabels(distanceList[::xtickSample])
+    ax[0].set_xticks(xtickPos[::XTICKSAMPLE])
+    ax[0].set_xticklabels(distanceList[::XTICKSAMPLE])
 
     ax[0].set_ylabel('Frequency (Hz)')
-    ax[0].set_yticks(np.linspace(0,max_freq_index,ytickcnt))
-    ax[0].set_yticklabels(np.flip(np.linspace(0, max_freq, ytickcnt, dtype=int)))
+    ax[0].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
+    ax[0].set_yticklabels(np.flip(np.linspace(0, max_freq, YTICKCNT, dtype=int)))
 
     ax[0].tick_params(right=True, left=False, labelleft=False)
 
@@ -474,10 +503,10 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
     ax[1].set_title('Theoretical')
     ax[1].set_xlabel('Distance (m)')
-    ax[1].set_xticks(xtickPos[::xtickSample])
-    ax[1].set_xticklabels(distanceList[::xtickSample])
-    ax[1].set_yticks(np.linspace(0,max_freq_index,ytickcnt))
-    ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, ytickcnt, dtype=int)))
+    ax[1].set_xticks(xtickPos[::XTICKSAMPLE])
+    ax[1].set_xticklabels(distanceList[::XTICKSAMPLE])
+    ax[1].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
+    ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, YTICKCNT, dtype=int)))
 
     theoFreqList = plotTheoretical(distanceList, setting, roundup, doPlot=False)
     ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoFreqList], 'r')
@@ -492,8 +521,8 @@ def main():
 
     DELAYLINE = 10*2.24**0.5
 
-    today = '0225hornfm05'
-    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':0}
+    today = '0225fm05'
+    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':DELAYLINE}
 
 
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
@@ -504,8 +533,8 @@ def main():
     distanceList = [float(i[:-5])/100 for i in filenames]
 
 
-    # plotSingleFile(today, '1001.csv')
-    # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=True)
+    # plotSingleFile(today, '0002.csv')
+    # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
 
