@@ -6,6 +6,8 @@ import sys
 import time
 import threading
 
+# import ADF4158
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -147,69 +149,35 @@ class FMCWRadar:
         self._info[self._direction] = infoList
         self._objectFreqs = []
 
+class SigView:
 
-class RadarView:
+    def __init__(self):
+        self.fig, self.ax = plt.subplots(2,1, num='fig')
 
+        self.ax[0].set_xlim(0, 1e-2)
+        self.ax[0].set_ylim(-0.12, 0.12)
+        
+        self.ax[1].set_xlim(0, 25e3)
+        self.ax[1].set_ylim(0, 0.05)
 
-    def __init__(self, t):
+        self.fig.subplots_adjust(left=0.3)
 
-        if t==1:
-            self.fig, self.ax = plt.subplots(2,1, num='fig')
-            # self.fig2, self.ax2 = plt.subplots(3,2, num='fig2')
+        self.timeLine, = self.ax[0].plot([], [])
+        self.freqLine, = self.ax[1].plot([], [], 'r')
 
-            self.ax[0].set_xlim(0, 1e-2)
-            self.ax[0].set_ylim(-0.12, 0.12)
-            
-            self.ax[1].set_xlim(0, 25e3)
-            self.ax[1].set_ylim(0, 0.05)
-
-            self.fig.subplots_adjust(left=0.3)
-
-            self.timeLine, = self.ax[0].plot([], [])
-            self.freqLine, = self.ax[1].plot([], [], 'r')
-
-            self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-            self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
-            self.button.on_clicked(self.onClick)
-
-        else:
-            self.fig = plt.figure('fig2')
-            self.ax = self.fig.add_subplot(111, polar=True)
-
-            self.ax.set_rmax(2)
-            self.ax.set_rticks(np.arange(0, 2, 0.5))
-
-            self.fig.subplots_adjust(left=0.3)
-
-            self.ppiData, = self.ax.plot([], [], 'ro')
-
-            self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-            self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
-            self.button.on_clicked(self.onClick)
-
+        self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+        self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
+        self.button.on_clicked(self.onClick)
 
     def figShow(self):
         plt.pause(1)
 
-    def initPPI(self):
-        return self.ppiData,
-
-    def updatePPI(self, frame, ppiTheta, ppiR):
-
-        ## dynamic set rmax ??
-
-        self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
-        # self.ppiData.set_data(ppiTheta, ppiR)
-
-        return self.ppiData,
-
-
-    def initRealTimeSig(self):
+    def init(self):
         # print('initRealTimeSig')
 
         return self.timeLine, self.freqLine,
 
-    def updateRealTimeSig(self, frame, sigDict):
+    def update(self, frame, sigDict):
         # print('frame', frame)
 
         ## dynamic set ax.x_lim here ??
@@ -221,6 +189,42 @@ class RadarView:
 
     def onClick(self, event):
         print('click')
+
+class PPIView:
+
+    def __init__(self):
+        self.fig = plt.figure('fig2')
+        self.ax = self.fig.add_subplot(111, polar=True)
+
+        self.ax.set_rmax(2)
+        self.ax.set_rticks(np.arange(0, 2, 0.5))
+
+        self.fig.subplots_adjust(left=0.3)
+
+        self.ppiData, = self.ax.plot([], [], 'ro')
+
+        self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+        self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
+        self.button.on_clicked(self.onClick)
+
+    def figShow(self):
+        plt.pause(1)
+
+    def init(self):
+        return self.ppiData,
+
+    def update(self, frame, ppiTheta, ppiR):
+
+        ## dynamic set rmax ??
+
+        self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
+        # self.ppiData.set_data(ppiTheta, ppiR)
+
+        return self.ppiData,
+
+    def onClick(self, event):
+        print('click')
+
 
 def read(ser, radar, readEvent):
     """read signal at anytime in other thread"""
@@ -342,7 +346,7 @@ def main():
     print('Reading Signal')
     readEvent.set()
 
-    # radarView = RadarView()
+    views = []
 
     try:
         prompt = ''
@@ -367,24 +371,31 @@ def main():
 
 
             elif s.startswith('draw'):
-                radarView = RadarView(1)
-
-                animation = FuncAnimation(radarView.fig, radarView.updateRealTimeSig,
-                    frames=100, init_func=radarView.initRealTimeSig, interval=20, blit=True,
+                view = SigView()
+                views.append(view)
+                animation = FuncAnimation(view.fig, view.update,
+                    frames=100, init_func=view.init, interval=20, blit=True,
                     fargs=(radar.realTimeSig,))
-                radarView.figShow()
+                view.figShow()
 
             elif s.startswith('ppi'):
-                radarView = RadarView(2)
+                view = PPIView()
+                views.append(view)
 
-                animation = FuncAnimation(radarView.fig, radarView.updatePPI,
-                    frames=100, init_func=radarView.initPPI, interval=20, blit=True,
+                animation = FuncAnimation(view.fig, view.update,
+                    frames=100, init_func=view.init, interval=20, blit=True,
                     fargs=([random.random(), np.pi/3], [1,0.5]))
 
-                radarView.figShow()
+                view.figShow()
 
             elif s.startswith('close'):
-                plt.close(radarView.fig)
+                for view in views:
+                    plt.close(view.fig)
+                views.clear()
+
+            elif s.startswith('setfreq'):
+                # TODO: ADF4158 module
+                pass
 
 
             elif s.startswith('q'):
