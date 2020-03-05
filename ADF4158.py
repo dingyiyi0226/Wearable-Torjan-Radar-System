@@ -2,15 +2,6 @@
   Filename      [ controller.py ]
   PackageName   [ Radar ]
   Synopsis      [ ADF4158 Signal Generator Control Module ]
-
-  R0: FRAC/INT REGISTER
-  R1: LSB FRAC REGISTER
-  R2: R-DIVIDER REGISTER
-  R3: FUNCTION REGISTER
-  R4: TEST REGISTER
-  R5: DEVIATION REGISTER
-  R6: STEP REGISTER
-  R7: DELAY REGISTER
 """
 
 from collections import OrderedDict
@@ -42,17 +33,18 @@ MUXOUT = 15     # T8
 # ------------------------------------------------------ #
 
 DEV_MAX  = (1 << 15)
-REF_IN   = 10 ** 7      # 10 MHz
+REF_IN   = 1e7          # 10 MHz
 REF_DOUB = 0            # in [0,  1]
 REF_COUN = 1            # in [1, 32]
 REF_DIVD = 0            # in [0,  1]
 CLK1     = 1
+CLK2     = 2
 
 """ 
 Equation (3)
 $f_{pfd} = \text{REF_{IN}} * \frac{(1 + D)}{ R \times (1 + T) }$ 
 """
-FREQ_PFD = REF_IN * (1 + REF_DOUB) / (REF_COUN * (1 + REF_DIVD))
+FREQ_PFD = int(REF_IN * (1 + REF_DOUB) / (REF_COUN * (1 + REF_DIVD)))
 
 
 # ------------------------------------------------------ #
@@ -100,6 +92,12 @@ class Muxout(IntEnum):
     N_DIVIDER_2  = 14
     READBACK     = 15
 
+@unique
+class Prescaler(IntEnum):
+    """ DB22 at Register 2: R-DIVIDEr REGISTER """
+    PRESCALER45 = 0
+    PRESCALER89 = 1
+
 # ------------------------------------------------------ #
 # Helper function                                        #
 # ------------------------------------------------------ #
@@ -131,7 +129,13 @@ def mask(start, end=0):
     return (1 << (start + 1)) - (1 << (end))
 
 def overwrite(value, start, end, newValue):
+    """ Rewrite the bits at given a 32-bit length bit sequences """
+    assert (newValue >> (start - end + 1) == 0)
     return (value & (~mask(start, end))) | (newValue << end)
+
+def parseBits(value, start, end):
+    """ Get the sub-bitSequences """
+    return (value & (mask(start, end))) >> end
 
 def setReadyToWrite():
     GPIO.output(W_CLK, False)
@@ -140,7 +144,7 @@ def setReadyToWrite():
 
 # TODO
 def readWord():
-    """ Readback words """
+    """ Readback words from MUXOUT """
     word = 0
 
     GPIO.output(LE, True)
@@ -284,7 +288,7 @@ def setPumpSetting(patterns, current):
     patterns['PIN2'] = overwrite(patterns['PIN2'], 27, 24, current)
     return patterns
 
-def setCenterFrequency(patterns, freq, ref=10):
+def setCenterFrequency(patterns, freq, ref=1e7):
     """
     $$
     RF_{out} = f_{PFD} \times (\text{INT} + ( \frac{ \text{FRAC} }{ 2 ^ {25} } ))
@@ -295,42 +299,52 @@ def setCenterFrequency(patterns, freq, ref=10):
     f_{PFD} = \text{REF_{IN}} \times ( \frac{(1 + D)} { R \times (1 + T) })
     $$
 
-    :param freq: Center frequency (MHz)
+    :param freq: Center frequency
 
-    :param span: Reference clock
+    :param ref: Reference clock frequency
     """
     frac = int((freq % ref) / ref * (1 << 25))
+    frac_MSB = (frac >> 13)
+    frac_LSB = (frac % (1 << 13))
+
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 26, 15, int(freq // ref))
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, frac_MSB)
+    patterns['PIN1'] = overwrite(patterns['PIN1'], 27, 15, frac_LSB)
     
-    patterns['PIN0'] = overwrite(patterns['PIN0'], 26, 15, freq // ref)
-    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, (frac >> 13))
-    patterns['PIN1'] = overwrite(patterns['PIN0'], 27, 15, (frac % (1 << 13)))
-    
+    prescaler = Prescaler.PRESCALER89 if freq > 3e9 else Prescaler.PRESCALER45
+    patterns['PIN2'] = overwrite(patterns['PIN2'], 22, 22, prescaler)
+
     return patterns
 
-# TODO
-def parsePatterns(patterns):
-    return
-
-# TODO
-def setModulationInterval(patterns, centerFreq=None, bandwidth=None, tm=None, fm=None):
+def setModulationInterval(patterns, centerFreq, bandwidth, tm):
     """
-    To determined the word of **DEV**, **DEV_OFFSET**
+    To determined the word of **DEV**, **DEV_OFFSET**.
+
+    Optimize
+    --------
+    - Steps: As much as possible to form a approx. linear wave
+    - DevOffset: As low as possible
 
     :param centerFreq:
 
     :param bandwidth:
 
     :param tm:
-
-    :param fm:
     """
 
-    # freq_res = FREQ_PFD / (1 << 25)
-    # devOffset = ceil(log2(frqe_dev / (freq_res * DEV_MAX)))
-    # dev = round(freq_dev / (freq_res * (1 << devOffset)))
-    
-    # patterns = setCenterFrequency(centerFreq)
-    # patterns = setRampAttribute(patterns, dev=dev, devOffset=devOffset)
+    f_res = FREQ_PFD / (1 << 25)
+    steps = int(tm * FREQ_PFD / (1 * 2))
+    f_dev = bandwidth / steps
+
+    dev = round(f_dev / f_res)
+    devOffset = 0
+
+    while dev > 32767:
+        dev = dev >> 1
+        devOffset += 1
+
+    patterns = setCenterFrequency(patterns, int(centerFreq))
+    patterns = setRampAttribute(patterns, dev=dev, devOffset=devOffset, steps=steps)
 
     return patterns
 
@@ -347,11 +361,24 @@ def test_triangle():
     sendWord(0x00000001)
     sendWord(0x811F8000)
 
+def test_main():
+    sendWord(0x00027FFF)
+    sendWord(0x00864006)
+    sendWord(0x00014006)
+    sendWord(0x00800005)
+    sendWord(0x000BFFFD)
+    sendWord(0x00180104)
+    sendWord(0x00000443)
+    sendWord(0x0040800A)
+    sendWord(0x00000001)
+    sendWord(0x811F8000)
+
 def main():
     initADF4851()
+    test_main()
 
-    while True:
-        test_triangle()
+    # while True:
+    #     test_triangle()
 
     return
 
