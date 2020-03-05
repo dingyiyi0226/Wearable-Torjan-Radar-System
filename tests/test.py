@@ -24,8 +24,10 @@ class TestBitModifyMethod(unittest.TestCase):
         patterns = setRamp(patterns, True)
         patterns = setRampMode(patterns, RampMode.CONT_TRIANGULAR)
         patterns = setRampAttribute(patterns, clk=2, dev=32767, devOffset=1, steps=5120)
+        
         patterns = setPumpSetting(patterns, current=2.5)
         patterns = setCenterFrequency(patterns, freq=5750, ref=10)
+        patterns = setMuxout(patterns, Muxout.THREE_STATE)
 
         self.assertEqual(patterns['PIN7'],  0x00000007)
         self.assertEqual(patterns['PIN6A'], 0x0000A006)

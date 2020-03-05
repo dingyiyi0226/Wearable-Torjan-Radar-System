@@ -16,12 +16,16 @@
 from collections import OrderedDict
 from functools import wraps
 from enum import Enum, IntEnum, unique
+from math import log2, floor, ceil
 import RPi.GPIO as GPIO
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
 
-# Define GPIO pins
+# ------------------------------------------------------ #
+# Define GPIO Pins                                       #
+# ------------------------------------------------------ #
+
 # Pin numbering scheme: 
 #   - Defined by GPIO.setmode(GPIO.BOARD)
 #   - Use physical pin number
@@ -34,6 +38,24 @@ TXDATA = 13     # T16
 MUXOUT = 15     # T8
 
 # ------------------------------------------------------ #
+# Define ADF4158.Constant                                #
+# ------------------------------------------------------ #
+
+DEV_MAX  = (1 << 15)
+REF_IN   = 10 ** 7      # 10 MHz
+REF_DOUB = 0            # in [0,  1]
+REF_COUN = 1            # in [1, 32]
+REF_DIVD = 0            # in [0,  1]
+CLK1     = 1
+
+""" 
+Equation (3)
+$f_{pfd} = \text{REF_{IN}} * \frac{(1 + D)}{ R \times (1 + T) }$ 
+"""
+FREQ_PFD = REF_IN * (1 + REF_DOUB) / (REF_COUN * (1 + REF_DIVD))
+
+
+# ------------------------------------------------------ #
 # Enumerate                                              #
 # ------------------------------------------------------ #
 
@@ -41,6 +63,14 @@ MUXOUT = 15     # T8
 class Clock(IntEnum):
     FALLING_EDGE = 0
     RISING_EDGE  = 1
+
+@unique
+class ClkDivMode(IntEnum):
+    """ DB20 - DB19 at Register 4: TEST REGISTER """
+    CLOCK_DIVIDER_OFF = 0
+    FAST_LOCK_DIVIDER = 1
+    # RESERVED        = 2
+    RAMP_DIVIDER      = 3
 
 @unique
 class RampMode(IntEnum):
@@ -210,9 +240,9 @@ def setMuxout(patterns, mode: Muxout):
     patterns['PIN0'] = overwrite(patterns['PIN0'], 30, 27, int(mode))
     return patterns
 
-def setRampAttribute(patterns, clk=None, dev=None, devOffset=None, steps=None):
+def setRampAttribute(patterns, clk2=None, dev=None, devOffset=None, steps=None):
     """
-    :param clk: CLK_2 devider value at range [0, 4095]
+    :param clk2: CLK_2 divider value at range [0, 4095]
 
     :param dev: Deviation words at range [-32768, 32767]
 
@@ -223,9 +253,9 @@ def setRampAttribute(patterns, clk=None, dev=None, devOffset=None, steps=None):
     :return patterns
     """
 
-    if clk is not None:
-        assert(clk >= 0 and clk <= 4095)
-        patterns['PIN4']  = overwrite(patterns['PIN4'], 18, 7, clk)
+    if clk2 is not None:
+        assert(clk2 >= 0 and clk2 <= 4095)
+        patterns['PIN4']  = overwrite(patterns['PIN4'], 18, 7, clk2)
 
     if dev is not None:
         assert(dev >= -32768 and dev <= 32767)
@@ -269,20 +299,40 @@ def setCenterFrequency(patterns, freq, ref=10):
 
     :param span: Reference clock
     """
+    frac = int((freq % ref) / ref * (1 << 25))
+    
     patterns['PIN0'] = overwrite(patterns['PIN0'], 26, 15, freq // ref)
-    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, (freq % ref) << 12)
-    patterns['PIN1'] = overwrite(patterns['PIN0'], 27, 15, ((freq % ref) << 25) % (1 << 13))
+    patterns['PIN0'] = overwrite(patterns['PIN0'], 14,  3, (frac >> 13))
+    patterns['PIN1'] = overwrite(patterns['PIN0'], 27, 15, (frac % (1 << 13)))
     
     return patterns
 
 # TODO
-def setModulationInterval(tm=None, fm=None):
+def parsePatterns(patterns):
+    return
+
+# TODO
+def setModulationInterval(patterns, centerFreq=None, bandwidth=None, tm=None, fm=None):
     """
+    To determined the word of **DEV**, **DEV_OFFSET**
+
+    :param centerFreq:
+
+    :param bandwidth:
+
     :param tm:
 
     :param fm:
     """
-    return
+
+    # freq_res = FREQ_PFD / (1 << 25)
+    # devOffset = ceil(log2(frqe_dev / (freq_res * DEV_MAX)))
+    # dev = round(freq_dev / (freq_res * (1 << devOffset)))
+    
+    # patterns = setCenterFrequency(centerFreq)
+    # patterns = setRampAttribute(patterns, dev=dev, devOffset=devOffset)
+
+    return patterns
 
 def test_triangle():
     """ Unittest: send ramp freq. control words """
