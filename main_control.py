@@ -10,52 +10,54 @@ import threading
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.signal as sg
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
-from scipy.signal import find_peaks
 
 
 class FMCWRadar:
     """FMCW Radar model for each freqency"""
 
-    def __init__(self, freq, slope):
+    def __init__(self, freq, BW, tm):
 
         ## SIGNAL IDENTITY
 
-        self._freq  = freq       ## the operation frequency
-        self._slope = slope      ## the slope of transmitting signal (Hz/s)
+        self._freq = freq        ## the operation frequency
+        self._slope = BW/tm      ## the slope of transmitting signal (Hz/s)
+        self._BW = BW
+        self._tm = tm
+        self._fm = 1/tm
+        self._distanceOffset = 0.7
 
         ## DATA
 
-        self._info = {}          ## info of each direction: { angle: [(range, velo)] }
-        self._direction = 90     ## operating direction , at 90 degree by default
+        self.info = {}          ## info of each direction: { angle: [(range, velo)] }
+        self.direction = 90     ## operating direction , at 90 degree by default
 
         ## SIGNAL PROCESSING
 
         self._signalLength = 0   ## length of received data. len(timeSig) = 2*len(freqSig)
         self._resetFlag = False  ## reset signal flag
-        self._signal       = []  ## received data (temp signal)
+        self._signal = []        ## received data (temp signal)
 
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSig
         self._objectFreqs  = []  ## [(f1,f2), (f3,f4), ... ] two freqs cause by an object
                                  ## the tuple contain only one freq iff the object is stationary
 
-        self.realTimeSig = {'timeSig':[], 'timeAxis':[],'freqSig':[],'freqAxis':[]}
+        self.backgroundSig = {}
+        self.realTimeSig = {'timeSig':[], 'timeAxis':[],'freqSig':[],'freqAxis':[], 'avgFreqSig':[]}
+
 
     ## SIGNAL PROCESSING FUNCTIONS
 
     def resetSignal(self):
-        self._resetFlag = True
+        self._signal = []
 
     def readSignal(self, signal):
         # print(signal)
-
-        if self._resetFlag:
-            self._signal = []
-            self._resetFlag = False
-
-        self._signal.extend(signal)
+        # self._signal.extend([i/1024 for i in signal])  # read from arduino
+        self._signal.extend(signal)  # read from file
 
     def endReadSignal(self, time):
         """update some variable at the end of the signal and start signal processing"""
@@ -70,22 +72,37 @@ class FMCWRadar:
 
         self._signalProcessing()
 
+    def setBackgroundSig(self):
+        self.backgroundSig = self.realTimeSig
+
     def _signalProcessing(self):
         self._fft()
         if not self._findFreqPair():
-            # print('no peak frequency')
+            print('no peak frequency')
             return
         self._calculateInfo()
 
     def _fft(self):
         """perform fft on `_signal`"""
 
-        PEAK_HEIGHT = 1e-2  ## amplitude of peak frequency must exceed PEAK_HEIGHT
+        PEAK_HEIGHT = 3e-2  ## amplitude of peak frequency must exceed PEAK_HEIGHT
         fftSignal_o = abs(np.fft.fft(self._signal))
         self.realTimeSig['freqSig'] = [i*2/self._signalLength for i in fftSignal_o[:self._signalLength//2]]
+        self._avgFFTSig()
 
-        self._peakFreqsIdx, _ = find_peaks(self.realTimeSig['freqSig'], height=PEAK_HEIGHT)
+        self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['avgFreqSig'], height=PEAK_HEIGHT)
         # print(self._peakFreqsIdx)
+
+    def _avgFFTSig(self):
+        """ averaging the fft signal """
+
+        AVGTICK = 3   ## the number of ticks on frequency axis
+        minFreqdiff = 1/self._samplingTime
+        winLength = int(self._fm*self._samplingTime)
+        window = np.ones(winLength)       ## window for averaging the signal
+        window = window/window.sum()
+
+        self.realTimeSig['avgFreqSig'] = sg.oaconvolve(self.realTimeSig['freqSig'], window, mode='same')
 
     def _findFreqPair(self) -> bool:
         """split the freqs in `_peakFreq` with same intensity into pairs
@@ -96,24 +113,26 @@ class FMCWRadar:
 
         PEAK_DIFF = 1e-3  ## we assume two peak belong to same object if and only if the amplitude
                           ## difference between two peaks < PEAK_DIFF
-        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['freqSig'][k], reverse=True)
+        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['avgFreqSig'][k], reverse=True)
         if not sortedFreqIndex: return False
 
         freqAmplitude = 0
         tmpFreqIndex = 0
         # print('sortedFreqIndex', sortedFreqIndex)
+
         for freqIndex in sortedFreqIndex:
             # print(freqIndex, self.realTimeSig['freqSig'][freqIndex])
             if freqAmplitude == 0:
-                freqAmplitude =  self.realTimeSig['freqSig'][freqIndex]
+                freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
                 tmpFreqIndex = freqIndex
                 continue
-            if (freqAmplitude -  self.realTimeSig['freqSig'][freqIndex]) < PEAK_DIFF:
+            if (freqAmplitude - self.realTimeSig['avgFreqSig'][freqIndex]) < PEAK_DIFF:
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), int(freqIndex/self._samplingTime)))
                 freqAmplitude = 0.
             else:
+                # print('ff',int(tmpFreqIndex/self._samplingTime))
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
-                freqAmplitude =  self.realTimeSig['freqSig'][freqIndex]
+                freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
                 tmpFreqIndex = freqIndex
             # print(freqIndex)
         if freqAmplitude != 0:
@@ -131,39 +150,56 @@ class FMCWRadar:
         for tup in self._objectFreqs:
             if len(tup) == 1:
                 fb = tup[0]
-                objRange = fb / self._slope * 3e8 / 2
+                objRange = self._freq2Range(fb)
                 objVelo  = 0.
             else:
                 fb =    (tup[0] + tup[1]) / 2
                 fd = abs(tup[0] - tup[1]) / 2
-                objRange = fb / self._slope * 3e8 / 2
-                objVelo  = fd / self._freq  * 3e8 / 2
+                objRange = self._freq2Range(fb)
+                objVelo  = self._freq2Velo(fd)
 
-            infoList += (objRange, objVelo)
+            objRange -= self._distanceOffset
+            infoList.append((objRange, objVelo))
+            # print( (objRange, objVelo))
 
-            # if self._direction in self._info:
-            #     self._info[self._direction] += (objRange, objVelo)
-            # else:
-            #     self._info[self._direction] = [(objRange, objVelo)]
+        # print(infoList)
 
-        self._info[self._direction] = infoList
+        self.info[self.direction] = infoList
         self._objectFreqs = []
+
+    def _freq2Range(self, freq):
+        return freq / self._slope * 3e8 / 2
+
+    def _freq2Velo(self, freq):
+        return freq / self._freq * 3e8 / 2
+
+    def _beatFreqLim(self):
+        # TODO:
+
+        pass
 
 class SigView:
 
-    def __init__(self):
-        self.fig, self.ax = plt.subplots(2,1, num='fig')
+    def __init__(self, maxFreq, maxTime):
 
-        self.ax[0].set_xlim(0, 1e-2)
-        self.ax[0].set_ylim(-0.12, 0.12)
+        self.fig, self.ax = plt.subplots(3,1, num='fig', figsize=(8,7))
+
+        self.ax[0].set_xlim(0, maxTime)
+        # self.ax[0].set_ylim(-0.3, 1)  # for arduino
+        self.ax[0].set_ylim(-0.3, 0.3)
+        self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
-        self.ax[1].set_xlim(0, 25e3)
-        self.ax[1].set_ylim(0, 0.05)
+        self.ax[1].set_xlim(0, maxFreq)
+        self.ax[1].set_ylim(0, 0.15)
 
-        self.fig.subplots_adjust(left=0.3)
+        self.ax[2].set_xlim(0, maxFreq)
+        self.ax[2].set_ylim(0, 0.15)
+
+        self.fig.subplots_adjust(left=0.3, hspace=0.3)
 
         self.timeLine, = self.ax[0].plot([], [])
         self.freqLine, = self.ax[1].plot([], [], 'r')
+        self.avgFreqLine, = self.ax[2].plot([], [], 'r')
 
         self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
         self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
@@ -174,30 +210,34 @@ class SigView:
 
     def init(self):
         # print('initRealTimeSig')
-
-        return self.timeLine, self.freqLine,
+        return self.timeLine, self.freqLine, self.avgFreqLine,
 
     def update(self, frame, sigDict):
         # print('frame', frame)
 
-        ## dynamic set ax.x_lim here ??
+        ## if you needs to set ax.x_lim dynamically, blit has to be False
+
+        # self.ax[0].set_xlim(0, sigDict['timeAxis'][-1])
+        # self.ax[1].set_xlim(0, sigDict['freqAxis'][-1])
+        # self.ax[2].set_xlim(0, sigDict['freqAxis'][-1])
 
         self.timeLine.set_data(sigDict['timeAxis'], sigDict['timeSig'])
         self.freqLine.set_data(sigDict['freqAxis'], sigDict['freqSig'])
+        self.avgFreqLine.set_data(sigDict['freqAxis'], sigDict['avgFreqSig'])
 
-        return self.timeLine, self.freqLine,
+        return self.timeLine, self.freqLine, self.avgFreqLine,
 
     def onClick(self, event):
         print('click')
 
 class PPIView:
 
-    def __init__(self):
+    def __init__(self, maxR):
         self.fig = plt.figure('fig2')
         self.ax = self.fig.add_subplot(111, polar=True)
 
-        self.ax.set_rmax(2)
-        self.ax.set_rticks(np.arange(0, 2, 0.5))
+        self.ax.set_rmax(maxR)
+        self.ax.set_rticks(np.arange(0, maxR))
 
         self.fig.subplots_adjust(left=0.3)
 
@@ -213,12 +253,11 @@ class PPIView:
     def init(self):
         return self.ppiData,
 
-    def update(self, frame, ppiTheta, ppiR):
-
-        ## dynamic set rmax ??
-
-        self.ppiData.set_data([i+frame/100*2*np.pi for i in ppiTheta], [i+frame/100 for i in ppiR])
-        # self.ppiData.set_data(ppiTheta, ppiR)
+    def update(self, frame, direction, info):
+        direction = direction/180*np.pi
+        self.ppiData.set_data([direction for i in info], [i[0] for i in info])
+        # self.ppiData.set_markersize(frame%5 + 12)
+        # self.ppiData.set_markerfacecolor((1,0,0,0.2*(frame%5)))
 
         return self.ppiData,
 
@@ -268,7 +307,7 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
     simSignal = []
     simSampFreq = 0
 
-    with open('rawdata/0225/'+filename+'.csv') as file:
+    with open('rawdata/0225nolinefm05/'+filename+'.csv') as file:
         datas = csv.reader(file)
         for ind, data in enumerate(datas):
             if ind==0: continue
@@ -325,22 +364,22 @@ def port() -> str:
 
 def main():
 
-    # ## Port Connecting
+    ## Port Connecting
     # ser = serial.Serial(port())
     # print('Successfully open port: ', ser)
 
     ## initialize the model
-    radar = FMCWRadar(freq=58e8 , slope=100e6/1e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
+    radar = FMCWRadar(freq=58e8 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
 
     ## start reading in another thread but block by readEvent
     readEvent  = threading.Event()
 
-    # ## practical version
+    ## practical version
     # readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
 
     ## simulation version
     readThread = threading.Thread(target=readSimSignal, daemon=True,
-        kwargs={'filename':'2252', 'samFreq':5e4, 'samTime':1e-2, 'radar':radar, 'readEvent':readEvent})
+        kwargs={'filename':'2252', 'samFreq':1e4, 'samTime':2e-2, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
     print('Reading Signal')
@@ -362,7 +401,7 @@ def main():
                     print('Reading Signal')
                     readEvent.set()
 
-            elif s.startswith('stopread'):
+            elif s.startswith('stop'):
                 if not readEvent.is_set():
                     print('not been reading signal')
                 else:
@@ -370,21 +409,22 @@ def main():
                     print('Stop Reading Signal')
 
 
-            elif s.startswith('draw'):
-                view = SigView()
+            elif s.startswith('sig'):
+                # view = SigView(maxFreq=2e3, maxTime=0.2)  # for arduino
+                view = SigView(maxFreq=10e3, maxTime=1e-2)  # for simulation
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
-                    frames=100, init_func=view.init, interval=20, blit=True,
+                    init_func=view.init, interval=20, blit=False,
                     fargs=(radar.realTimeSig,))
                 view.figShow()
 
             elif s.startswith('ppi'):
-                view = PPIView()
+                view = PPIView(maxR=5)
                 views.append(view)
 
                 animation = FuncAnimation(view.fig, view.update,
                     frames=100, init_func=view.init, interval=20, blit=True,
-                    fargs=([random.random(), np.pi/3], [1,0.5]))
+                    fargs=(radar.direction, radar.info[radar.direction]))
 
                 view.figShow()
 
@@ -398,10 +438,11 @@ def main():
                 pass
 
 
+            elif s.startswith('test'):
+                print(radar.info[radar.direction])
+                print('hello world')
             elif s.startswith('q'):
                 break
-            elif s.startswith('test'):
-                print('hello world')
             else:
                 print('Undefined Command')
 
