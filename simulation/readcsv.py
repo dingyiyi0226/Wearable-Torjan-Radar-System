@@ -95,6 +95,8 @@ def plotSingleFile(today, filename):
     assumeFm = 250
     avgLength = int(assumeFm/minFreqDiff*AVGTICK)
     window = np.ones(avgLength)
+
+
     # window = sg.gaussian(avgLength, std=int(assumeFm/minFreqDiff))
     avgyfn = sg.oaconvolve(yfn, window/window.sum(), mode='same')
 
@@ -207,6 +209,8 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             assumeFm = 250
             avgLength = int(assumeFm/minFreqDiff*AVGTICK)
             window = np.ones(avgLength)
+
+            # window = np.ones(int(minFreqDiff*10))  # for velocity cases
             # window = sg.gaussian(avgLength, std=int(assumeFm/minFreqDiff))
             avgyfn = sg.oaconvolve(normalizeyfn, window/window.sum(), mode='same')
 
@@ -214,6 +218,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
 
         if avgFreq:
             maxIndex = avgyfn[:max_freq_index//2].argmax()
+            # maxIndex = avgyfn[:max_freq_index].argmax()
             ax[pltind//3, pltind%3].plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
@@ -249,27 +254,22 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
     fig.subplots_adjust(hspace=0.8)
     plt.show()
 
-def plotTheoretical(distanceList, setting, roundup, doPlot=True):
+def plotTheoretical(varibleList, setting, roundup, doPlot=True):
     """ plot threoretical frequency
        
-         _ ↑
-         ↑ |      /\/\        /\/\
-         | |     / /\ \      / /\ \
-         B |    / /  \ \    / /  \ \
-         W |   / /    \ \  / /
-         | |  / /      \ \/ /
-         ↓ | / /        \/\/
+           ↑
+         _ |         /\          /\
+         ↑ |      /\/  \      /\/  \
+         | |     / /\   \    / /\   \
+         B |    / /  \   \  / /  \
+         W |   / /    \   \/ /    \
+         | |  / /      \  /\/      \
+         ↓ | /          \/          \
          ¯ + -------------------------->
              |<-- tm -->|
-             |<----  simTime  ---->|
+             |<----   simTime   ---->|
 
     """
-
-    distanceOffset = setting['distanceOffset']
-    # BW = setting['BW']
-    # tm = setting['tm']
-    # simTime = setting['simTime']
-
 
     fm = 1/setting['tm']
     slope = setting['BW']/setting['tm']*2
@@ -278,36 +278,84 @@ def plotTheoretical(distanceList, setting, roundup, doPlot=True):
     print('fm', fm)
     print('freqRes', freqRes)
 
-    freqList = []
+    f1List = []
+    f2List = []
 
-    for distance in distanceList:
+    if setting['varible']=='d':
+        for distance in varibleList:
 
-        distance*=2
+            distance*=2
 
-        timeDelay = (distance+distanceOffset)/3e8
-        beatFreq = timeDelay*slope
-        fbRoundUp = roundto(roundto(beatFreq, fm), freqRes)
-        if not roundup:
-            # print('beatFreq', beatFreq)
-            freqList.append(beatFreq)
-        else:
-            # print('fbRoundUp', fbRoundUp)
-            freqList.append(fbRoundUp)
+            timeDelay = (distance+setting['distanceOffset'])/3e8
+            beatFreq = timeDelay*slope
+            doppFreq = setting['velo']*2/3e8*setting['freq']
+
+            f1 = beatFreq+doppFreq
+            f2 = abs(beatFreq-doppFreq)
+
+            f1RoundUp = roundto(roundto(f1, fm), freqRes)
+            f2RoundUp = roundto(roundto(f2, fm), freqRes)
+            if not roundup:
+                # print('f1', f1)
+                # print('f2', f2)
+                f1List.append(f1)
+                f2List.append(f2)
+            else:
+                # print('f1RoundUp', f1RoundUp)
+                # print('f2RoundUp', f2RoundUp)
+                f1List.append(f1RoundUp)
+                f2List.append(f2RoundUp)
+    elif setting['varible']=='r':
+        for velocity in varibleList:
+
+            timeDelay = setting['distanceOffset']/3e8
+            beatFreq = timeDelay*slope
+            doppFreq = velocity*2/3e8*setting['freq']
+
+            f1 = beatFreq+doppFreq
+            f2 = abs(beatFreq-doppFreq)
+
+            f1RoundUp = roundto(roundto(f1, fm), freqRes)
+            f2RoundUp = roundto(roundto(f2, fm), freqRes)
+
+            if not roundup:
+                # print('f1', f1)
+                # print('f2', f2)
+                f1List.append(f1)
+                f2List.append(f2)
+            else:
+                # print('f1RoundUp', f1RoundUp)
+                # print('f2RoundUp', f2RoundUp)
+                f1List.append(f1RoundUp)
+                f2List.append(f2RoundUp)
+
+    else:
+        print('ughhhhhhh')
 
     if doPlot:
 
         plt.figure('Figure')
 
-        plt.plot(distanceList, freqList)
-        # plt.scatter(distanceList, freqList)
-        plt.xlabel('Distance (m)')
-        plt.ylabel('Frequency (Hz)')
-        plt.xticks(distanceList)
-        plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+        if setting['varible']=='d':
+            plt.suptitle('velo: {} m/s'.format(setting['velo']))
+        elif setting['varible']=='r':
+            plt.suptitle('distance: {} m'.format(setting['distance']))
 
+        plt.plot(varibleList, f1List, '.r')
+        plt.plot(varibleList, f2List, '.m')
+
+        if setting['varible']=='d':
+            plt.xlabel('Distance (m)')
+        elif setting['varible']=='r':
+            plt.xlabel('Velocity (m/s)')
+
+        plt.ylabel('Frequency (Hz)')
+        plt.xticks(varibleList)
+        plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+        plt.grid(True)
         plt.show()
 
-    return freqList
+    return f1List, f2List
 
 def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, avgFreq):
     """ plot experimental peak value and theoretical value """
@@ -361,7 +409,7 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
                 offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
 
         if avgFreq:
-            AVGTICK = 4
+            AVGTICK = 3
             fm = 1/setting['tm']
             avgLength = int(fm/minFreqDiff*AVGTICK)
             window = np.ones(avgLength)
@@ -374,7 +422,7 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
 
     print('freqList:', freqList)
 
-    theoFreqList = plotTheoretical(distanceList, setting, roundup, doPlot=False)
+    theoFreqList, _ = plotTheoretical(distanceList, setting, roundup, doPlot=False)
 
     plt.figure('Figure')
 
@@ -510,7 +558,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     ax[1].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
     ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, YTICKCNT, dtype=int)))
 
-    theoFreqList = plotTheoretical(distanceList, setting, roundup, doPlot=False)
+    theoFreqList, _ = plotTheoretical(distanceList, setting, roundup, doPlot=False)
     ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoFreqList], 'r')
 
 
@@ -522,29 +570,31 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 def main():
 
     DELAYLINE = 10*2.24**0.5
+    SETUPLINE = 1*2.24**0.5
 
-    today = '0225fm05'
-    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':DELAYLINE}
+    today = '0225nolinefm05'
+    todaySetting = {'BW':99.9969e6, 'tm':2048e-6, 'simTime':24e-3, 'distanceOffset':0,
+                    'freq':5.8e9, 'varible':'d', 'distance':0, 'velo':0}
 
 
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
     filenames.sort()
 
-    # filenames = filenames[:12]
+    filenames = filenames[:12]
 
     distanceList = [float(i[:-5])/100 for i in filenames]
 
 
-    # plotSingleFile(today, '2502.csv')
+    # plotSingleFile(today, '2752.csv')
     # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
-    # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
+    plotTheoretical(distanceList, setting=todaySetting, roundup=True)
 
-    plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
-                   roundup=True, removeBG=True, avgFreq=True)
+    # plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
+    #                roundup=True, removeBG=False, avgFreq=False)
 
-    plotHeatmap(today, filenames, distanceList, setting=todaySetting,
-                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
+    # plotHeatmap(today, filenames, distanceList, setting=todaySetting,
+    #             roundup=True, removeBG=False, normalizeFreq=False, avgFreq=True)
 
 
 if __name__ == '__main__':
