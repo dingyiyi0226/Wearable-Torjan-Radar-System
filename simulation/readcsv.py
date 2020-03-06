@@ -341,8 +341,8 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
         elif setting['varible']=='r':
             plt.suptitle('distance: {} m'.format(setting['distance']))
 
-        plt.plot(varibleList, f1List, '.r')
-        plt.plot(varibleList, f2List, '.m')
+        plt.plot(varibleList, f1List, '.m')
+        plt.plot(varibleList, f2List, '.r')
 
         if setting['varible']=='d':
             plt.xlabel('Distance (m)')
@@ -433,8 +433,8 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
         title+=' avgFreq'
     plt.suptitle(title)
 
-    plt.plot(distanceList[1:], freqList[1:], label='exp')
-    plt.plot(distanceList[1:], theoFreqList[1:], label='theo')
+    plt.plot(distanceList[1:], freqList[1:], '.-', label='exp')
+    plt.plot(distanceList[1:], theoFreqList[1:], '.-', label='theo')
     # plt.scatter(distanceList, freqList, label='exp')
     # plt.scatter(distanceList, theoFreqList, label='theo')
     plt.xlabel('Distance (m)')
@@ -558,8 +558,9 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     ax[1].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
     ax[1].set_yticklabels(np.flip(np.linspace(0, max_freq, YTICKCNT, dtype=int)))
 
-    theoFreqList, _ = plotTheoretical(distanceList, setting, roundup, doPlot=False)
-    ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoFreqList], 'r')
+    theoF1List, theoF2List = plotTheoretical(distanceList, setting, roundup, doPlot=False)
+    ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoF1List], '.:m')
+    ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoF2List], '.:r')
 
 
     plt.subplots_adjust(wspace=0.25)
@@ -572,15 +573,15 @@ def main():
     DELAYLINE = 10*2.24**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0225nolinefm05'
-    todaySetting = {'BW':99.9969e6, 'tm':2048e-6, 'simTime':24e-3, 'distanceOffset':0,
+    today = '0225fm05'
+    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':DELAYLINE,
                     'freq':5.8e9, 'varible':'d', 'distance':0, 'velo':0}
 
 
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
     filenames.sort()
 
-    filenames = filenames[:12]
+    # filenames = filenames[:12]
 
     distanceList = [float(i[:-5])/100 for i in filenames]
 
@@ -588,13 +589,13 @@ def main():
     # plotSingleFile(today, '2752.csv')
     # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
-    plotTheoretical(distanceList, setting=todaySetting, roundup=True)
+    # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
 
     # plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
-    #                roundup=True, removeBG=False, avgFreq=False)
+    #                roundup=True, removeBG=True, avgFreq=False)
 
-    # plotHeatmap(today, filenames, distanceList, setting=todaySetting,
-    #             roundup=True, removeBG=False, normalizeFreq=False, avgFreq=True)
+    plotHeatmap(today, filenames, distanceList, setting=todaySetting,
+                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
 
 
 if __name__ == '__main__':
