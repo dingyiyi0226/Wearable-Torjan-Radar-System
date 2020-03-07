@@ -24,7 +24,7 @@ def readcsv(filename, today):
         for ind, data in enumerate(datas):
             if ind==0: continue
             elif ind==1:
-                simFreq = 1/float(data[3])
+                simFreq = 1/float(data[-1])
                 # simFreq = 1/(float(data[3])*3)
             # elif ind%3!=2: continue
             else:
@@ -225,7 +225,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
         else:
-            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02, prominence=1e-3)
+            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 2e-3, prominence=1e-3)
 
             ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], 'x')
             peakList = []
@@ -575,7 +575,7 @@ def main():
     DELAYLINE = 10*2.24**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0225nolinefm05'
+    today = '0307'
     todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
                     'freq':5.8e9, 'varible':'d', 'distance':0, 'velo':0}
 
@@ -588,7 +588,7 @@ def main():
     distanceList = [float(i[:-5])/100 for i in filenames]
 
 
-    # plotSingleFile(today, '3502.csv')
+    # plotSingleFile(today, '302.csv')
     plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
