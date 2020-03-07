@@ -114,17 +114,26 @@ class ADF4158:
     DEV_MAX  = (1 << 15)
     REF_IN   = 1e7          # 10 MHz
 
-    def __init__(self):
+    register_pins = set()   # Static sets for maintaining used pins
+
+    def __init__(self, CLK, DATA, LE, TXDATA, MUXOUT):
         # ------------------------------------------------------ #
         # Define GPIO Pins                                       #
         # ------------------------------------------------------ #
 
         # self.GND  = 6      # T3
-        self.W_CLK  = 12     # T4
-        self.DATA   = 16     # T5
-        self.LE     = 18     # T6
-        self.TXDATA = 13     # T16
-        self.MUXOUT = 15     # T8
+        self.W_CLK  = CLK    # T4
+        self.DATA   = DATA   # T5
+        self.LE     = LE     # T6
+        self.TXDATA = TXDATA # T16
+        self.MUXOUT = MUXOUT # T8
+
+        # PINs Registration
+        for pin in (self.W_CLK, self.DATA, self.LE, self.TXDATA, self.MUXOUT):
+            if pin in self.register_pins:
+                raise ValueError("Repeat PINs in ADF4158")
+
+            self.register_pins.add(pin)
 
         # ------------------------------------------------------ #
         # Define ADF4158.Constant                                #
@@ -348,14 +357,14 @@ def set5800Default(module):
     module.setRamp(True)
     module.setRampMode(RampMode.CONT_TRIANGULAR)
 
-    module.setPumpSetting(current=2.5)
+    module.setPumpSetting(current=0.3125)
     module.setModulationInterval(centerFreq=5.75e9, bandwidth=1e8, tm=1.024e-3)
     module.setMuxout(Muxout.THREE_STATE)
 
     return module
 
 def set915Default():
-    module.initBitPatterns()
+    module.initBitPatterns(module)
 
     module.setRamp(True)
     module.setRampMode(RampMode.CONT_TRIANGULAR)

@@ -3,8 +3,11 @@ import unittest
 import ADF4158
 from ADF4158 import Muxout, RampMode, bitMask, mask, overwrite, parseBits
 
+module = ADF4158.ADF4158(12, 16, 18, 13, 15)
+
 
 class TestBitModifyMethod(unittest.TestCase):
+
     def test_bitMask(self):
         self.assertEqual(bitMask(0),  0x00000001)
         self.assertEqual(bitMask(31), 0x80000000)
@@ -25,8 +28,6 @@ class TestBitModifyMethod(unittest.TestCase):
         self.assertEqual(parseBits(0x12345678, 31, 24), 0x12)
 
     def test_ramp5800(self):
-        module = ADF4158.ADF4158()
-
         module.setRamp(True)
         module.setRampMode(RampMode.CONT_TRIANGULAR)
         module.setPumpSetting(current=0.3125)
@@ -45,8 +46,6 @@ class TestBitModifyMethod(unittest.TestCase):
         self.assertEqual(module.patterns['PIN0'],  0x811F8000)
 
     def test_ramp915(self):
-        module = ADF4158.ADF4158()
-
         module.setRamp(True)
         module.setRampMode(RampMode.CONT_TRIANGULAR)
 

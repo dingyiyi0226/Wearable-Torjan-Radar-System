@@ -15,7 +15,14 @@ from matplotlib.widgets import Button
 
 import ADF4158
 from view import PPIView, SigView
+from collections import namedtuple
 
+# GND  = 6      # T3
+W_CLK  = 12     # T4
+DATA   = 16     # T5
+LE     = 18     # T6
+TXDATA = 13     # T16
+MUXOUT = 15     # T8
 
 class FMCWRadar:
     """FMCW Radar model for each freqency"""
@@ -33,7 +40,7 @@ class FMCWRadar:
 
         ## SIGNAL GENERATOR MODULE
 
-        self._module = ADF4158.ADF4158()
+        self._module = ADF4158.set5800Default(ADF4158.ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
 
         ## DATA
 
@@ -54,6 +61,9 @@ class FMCWRadar:
         self.backgroundSig = {}
         self.realTimeSig = {'timeSig':[], 'timeAxis':[],'freqSig':[],'freqAxis':[], 'avgFreqSig':[]}
 
+    # TODO
+    def setModuleProperty(self):
+        pass
 
     ## SIGNAL PROCESSING FUNCTIONS
 
