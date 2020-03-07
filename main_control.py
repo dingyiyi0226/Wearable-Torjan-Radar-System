@@ -27,7 +27,7 @@ class FMCWRadar:
         self._BW = BW
         self._tm = tm
         self._fm = 1/tm
-        self._distanceOffset = 0.7
+        self._distanceOffset = 1*2.24**0.5
 
         ## DATA
 
@@ -85,12 +85,13 @@ class FMCWRadar:
     def _fft(self):
         """perform fft on `_signal`"""
 
-        PEAK_HEIGHT = 3e-2  ## amplitude of peak frequency must exceed PEAK_HEIGHT
+        PEAK_HEIGHT = 5e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
+        PEAK_PROMINENCE = 1e-4  ## prominence of peak frequency must exceed PEAK_PROMINENCE
         fftSignal_o = abs(np.fft.fft(self._signal))
         self.realTimeSig['freqSig'] = [i*2/self._signalLength for i in fftSignal_o[:self._signalLength//2]]
         self._avgFFTSig()
 
-        self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['avgFreqSig'], height=PEAK_HEIGHT)
+        self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['avgFreqSig'], height=PEAK_HEIGHT, prominence=PEAK_PROMINENCE)
         # print(self._peakFreqsIdx)
 
     def _avgFFTSig(self):
@@ -103,6 +104,7 @@ class FMCWRadar:
         window = window/window.sum()
 
         self.realTimeSig['avgFreqSig'] = sg.oaconvolve(self.realTimeSig['freqSig'], window, mode='same')
+        # self.realTimeSig['avgFreqSig'] = self.realTimeSig['freqSig']
 
     def _findFreqPair(self) -> bool:
         """split the freqs in `_peakFreq` with same intensity into pairs
@@ -111,7 +113,7 @@ class FMCWRadar:
             return false if no peak frequency is found
         """
 
-        PEAK_DIFF = 1e-3  ## we assume two peak belong to same object if and only if the amplitude
+        PEAK_DIFF = 1e-4  ## we assume two peak belong to same object if and only if the amplitude
                           ## difference between two peaks < PEAK_DIFF
         sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['avgFreqSig'][k], reverse=True)
         if not sortedFreqIndex: return False
@@ -152,15 +154,26 @@ class FMCWRadar:
                 fb = tup[0]
                 objRange = self._freq2Range(fb)
                 objVelo  = 0.
-            else:
-                fb =    (tup[0] + tup[1]) / 2
-                fd = abs(tup[0] - tup[1]) / 2
-                objRange = self._freq2Range(fb)
-                objVelo  = self._freq2Velo(fd)
 
-            objRange -= self._distanceOffset
-            infoList.append((objRange, objVelo))
-            # print( (objRange, objVelo))
+                objRange -= self._distanceOffset
+
+                infoList.append((objRange, objVelo))  # have one solution only
+            else:
+                f1 =    (tup[0] + tup[1]) / 2
+                f2 = abs(tup[0] - tup[1]) / 2
+
+                objRange1 = self._freq2Range(f1)
+                objVelo1  = self._freq2Velo(f2)
+
+                objRange2 = self._freq2Range(f2)
+                objVelo2  = self._freq2Velo(f1)
+
+                objRange1 -= self._distanceOffset
+                objRange2 -= self._distanceOffset
+                infoList.append((objRange1, objVelo1))  # have two solutions
+                infoList.append((objRange2, objVelo2))
+                # print( (objRange1, objVelo1))
+                # print( (objRange2, objVelo2))
 
         # print(infoList)
 
@@ -241,7 +254,7 @@ class PPIView:
 
         self.fig.subplots_adjust(left=0.3)
 
-        self.ppiData, = self.ax.plot([], [], 'ro')
+        self.ppiData, = self.ax.plot([], [], '.r')
 
         self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
         self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
@@ -379,7 +392,7 @@ def main():
 
     ## simulation version
     readThread = threading.Thread(target=readSimSignal, daemon=True,
-        kwargs={'filename':'2252', 'samFreq':1e4, 'samTime':2e-2, 'radar':radar, 'readEvent':readEvent})
+        kwargs={'filename':'3502', 'samFreq':1e4, 'samTime':2.4e-2, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
     print('Reading Signal')
@@ -437,9 +450,9 @@ def main():
                 # TODO: ADF4158 module
                 pass
 
-
+            elif s.startswith('info'):
+                print(radar.info)
             elif s.startswith('test'):
-                print(radar.info[radar.direction])
                 print('hello world')
             elif s.startswith('q'):
                 break

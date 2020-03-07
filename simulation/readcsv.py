@@ -72,7 +72,7 @@ def plotSingleFile(today, filename):
     max_freq_index = int(max_freq/minFreqDiff)
 
     plt.plot(f_axis[:max_freq_index],yfn[:max_freq_index], 'r')
-    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.01)
+    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.01, prominence=1e-3)
 
     plt.plot(peaks*minFreqDiff,[ yfn[i] for i in peaks], 'x')
     peakList = []
@@ -102,18 +102,20 @@ def plotSingleFile(today, filename):
 
     plt.plot(f_axis[:max_freq_index],avgyfn[:max_freq_index], 'r')
 
-    maxIndex = avgyfn[:max_freq_index//2].argmax()
-    plt.plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
-    plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
+    # ## mark the max value
+    # maxIndex = avgyfn[:max_freq_index//2].argmax()
+    # plt.plot(f_axis[maxIndex], avgyfn[maxIndex], 'x')
+    # plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
-    # avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.005)
+    ## mark the peak values
+    avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-3, prominence=1e-3)
 
-    # plt.plot(avgPeaks*minFreqDiff,[ avgyfn[i] for i in avgPeaks], 'x')
-    # avgPeakList = []
-    # for ind, i in enumerate(avgPeaks):
-    #     plt.annotate(s=int(avgPeaks[ind]*minFreqDiff), xy=(avgPeaks[ind]*minFreqDiff,avgyfn[i]))
-    #     print('avgPeaks at: {} Hz, amplitude = {}'.format(int(avgPeaks[ind]*minFreqDiff), avgyfn[i]))
-    #     avgPeakList.append( (int(avgPeaks[ind]*minFreqDiff), avgyfn[i]) )
+    plt.plot(avgPeaks*minFreqDiff,[ avgyfn[i] for i in avgPeaks], 'x')
+    avgPeakList = []
+    for ind, i in enumerate(avgPeaks):
+        plt.annotate(s=int(avgPeaks[ind]*minFreqDiff), xy=(avgPeaks[ind]*minFreqDiff,avgyfn[i]))
+        print('avgPeaks at: {} Hz, amplitude = {}'.format(int(avgPeaks[ind]*minFreqDiff), avgyfn[i]))
+        avgPeakList.append( (int(avgPeaks[ind]*minFreqDiff), avgyfn[i]) )
     # print()
 
     plt.subplots_adjust(hspace=0.9)
@@ -223,7 +225,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
         else:
-            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02)
+            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 0.02, prominence=1e-3)
 
             ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], 'x')
             peakList = []
@@ -573,8 +575,8 @@ def main():
     DELAYLINE = 10*2.24**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0225fm05'
-    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':DELAYLINE,
+    today = '0225nolinefm05'
+    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
                     'freq':5.8e9, 'varible':'d', 'distance':0, 'velo':0}
 
 
@@ -586,16 +588,16 @@ def main():
     distanceList = [float(i[:-5])/100 for i in filenames]
 
 
-    # plotSingleFile(today, '2752.csv')
-    # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
+    # plotSingleFile(today, '3502.csv')
+    plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
 
     # plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
-    #                roundup=True, removeBG=True, avgFreq=False)
+    #                roundup=True, removeBG=False, avgFreq=False)
 
-    plotHeatmap(today, filenames, distanceList, setting=todaySetting,
-                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
+    # plotHeatmap(today, filenames, distanceList, setting=todaySetting,
+    #             roundup=True, removeBG=False, normalizeFreq=False, avgFreq=True)
 
 
 if __name__ == '__main__':
