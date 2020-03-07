@@ -1,8 +1,9 @@
 import matplotlib
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
-import numpy as np
+
 
 class SigView:
 
@@ -10,14 +11,17 @@ class SigView:
 
         self.fig, self.ax = plt.subplots(3,1, num='fig', figsize=(8,7))
 
-        self.ax[0].set_xlim(0, maxTime)
+        # Axis[0]: Signal in Time Domain
         # self.ax[0].set_ylim(-0.3, 1)  # for arduino
+        self.ax[0].set_xlim(0, maxTime)
         self.ax[0].set_ylim(-0.3, 0.3)
         self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
+        # Axis[1]: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
         self.ax[1].set_ylim(0, 0.15)
 
+        # Axis[2]: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
         self.ax[2].set_ylim(0, 0.15)
 
@@ -57,6 +61,7 @@ class SigView:
         print('click')
 
 class PPIView:
+    """ Radar Interface """
 
     def __init__(self, maxR):
         self.fig = plt.figure('fig2')

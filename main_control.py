@@ -5,17 +5,16 @@ import sys
 import threading
 import time
 import warnings
+from collections import namedtuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sg
 import serial
+from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
-from matplotlib.widgets import Button
 
 import ADF4158
 from view import PPIView, SigView
-from collections import namedtuple
 
 # GND  = 6      # T3
 W_CLK  = 12     # T4
@@ -62,7 +61,7 @@ class FMCWRadar:
         self.realTimeSig = {'timeSig':[], 'timeAxis':[],'freqSig':[],'freqAxis':[], 'avgFreqSig':[]}
 
     # TODO
-    def setModuleProperty(self):
+    def setModuleProperty(self, tm):
         pass
 
     ## SIGNAL PROCESSING FUNCTIONS
@@ -375,8 +374,8 @@ def main():
                     plt.close(view.fig)
                 views.clear()
 
+            # TODO: ADF4158 module
             elif s.startswith('setfreq'):
-                # TODO: ADF4158 module
                 pass
 
             elif s.startswith('info'):
