@@ -374,8 +374,22 @@ def main():
                     plt.close(view.fig)
                 views.clear()
 
+            elif s.startswith('save'):
+                """ save time domain signal """
+                
+                distance = input('distances: ').strip()
+                today = '0307'
+
+                with open('./rawdata/{}/arduino_{}.csv'.format(today, distance), 'w') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(['X','Sig','','Increment'])
+                    writer.writerow(['','','',str(radar.realTimeSig['timeAxis'][1])])
+                    for ind, i in enumerate(radar.realTimeSig['timeSig']):
+                        writer.writerow([ind, i])
+
             # TODO: ADF4158 module
             elif s.startswith('setfreq'):
+                # radar.setModuleProperty()
                 pass
 
             elif s.startswith('info'):
