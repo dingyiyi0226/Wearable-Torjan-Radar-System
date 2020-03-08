@@ -72,7 +72,7 @@ def plotSingleFile(today, filename):
     max_freq_index = int(max_freq/minFreqDiff)
 
     plt.plot(f_axis[:max_freq_index],yfn[:max_freq_index], 'r')
-    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.01, prominence=1e-3)
+    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.05, prominence=0.02)
 
     plt.plot(peaks*minFreqDiff,[ yfn[i] for i in peaks], 'x')
     peakList = []
@@ -108,7 +108,7 @@ def plotSingleFile(today, filename):
     # plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
     ## mark the peak values
-    avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-3, prominence=1e-3)
+    avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-3, prominence=0.01)
 
     plt.plot(avgPeaks*minFreqDiff,[ avgyfn[i] for i in avgPeaks], 'x')
     avgPeakList = []
@@ -181,7 +181,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
                                             ## let the amplitude of output signal equals to inputs
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        # max_freq = 5e5
+        # max_freq = 25e3
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal
@@ -225,7 +225,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
         else:
-            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 2e-3, prominence=1e-3)
+            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-2, prominence=1e-3)
 
             ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], 'x')
             peakList = []
@@ -235,13 +235,13 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
                 peakList.append( (int(peaks[ind]*minFreqDiff), normalizeyfn[i]) )
 
         ax[pltind//3, pltind%3].set_title(filename[:-4]+' cm')
-        ax[pltind//3, pltind%3].tick_params(bottom=False, labelbottom=False)
+        # ax[pltind//3, pltind%3].tick_params(bottom=False, labelbottom=False)
         ax[pltind//3, pltind%3].ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
-        # if removeBG:
-        #     ax[pltind//3, pltind%3].set_ylim((-0.03, 0.05))
-        # else:
-        #     ax[pltind//3, pltind%3].set_ylim((0, 0.1))
+        if removeBG:
+            ax[pltind//3, pltind%3].set_ylim((0, 0.05))
+        else:
+            ax[pltind//3, pltind%3].set_ylim((0, 0.1))
 
     title = today
     if removeBG:
@@ -481,7 +481,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        # max_freq = 5e5
+        # max_freq = 25e3
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal

@@ -58,7 +58,7 @@ class FMCWRadar:
                                  ## the tuple contain only one freq iff the object is stationary
 
         self.backgroundSig = {}
-        self.realTimeSig = {'timeSig':[], 'timeAxis':[],'freqSig':[],'freqAxis':[], 'avgFreqSig':[]}
+        self.realTimeSig = {'timeSig':[1], 'timeAxis':[1],'freqSig':[1],'freqAxis':[1], 'avgFreqSig':[1]}
 
     # TODO
     def setModuleProperty(self, tm):
@@ -71,8 +71,8 @@ class FMCWRadar:
 
     def readSignal(self, signal):
         # print(signal)
-        # self._signal.extend([i/1024 for i in signal])  # read from arduino
-        self._signal.extend(signal)  # read from file
+        self._signal.extend([i/1024 for i in signal])  # read from arduino (signal values in range(0, 1024))
+        # self._signal.extend(signal)  # read from file
 
     def endReadSignal(self, time):
         """update some variable at the end of the signal and start signal processing"""

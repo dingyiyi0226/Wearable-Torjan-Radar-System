@@ -1,16 +1,16 @@
 
 // Define input pin
-int IN[4] = {A4,A5,A6,A7};
+int IN[4] = {A0,A1,A2,A3};
 
 void setup() {
 
     Serial.begin(9600);
     Serial.setTimeout(100);        // for serial.readstring
-    analogReference(INTERNAL2V56); // options: DEFAULT, INTERNAL1V1, INTERNAL2V56, EXTERNAL
+    // analogReference(INTERNAL2V56); // options: DEFAULT, INTERNAL1V1, INTERNAL2V56, EXTERNAL
 }
 
 unsigned long sampling_time, timetmp;
-const int DATA_NUM = 1000;
+const int DATA_NUM = 500;
 const int DATA_SPLIT = DATA_NUM/3;
 int signalDatas[DATA_NUM] = {0};
 String tmpString = "";
@@ -36,19 +36,28 @@ void loop() {
     for(int i=0;i<DATA_SPLIT;i++){
         tmpString += String(signalDatas[i])+' ';
     }
-    Serial.print("d "+tmpString+'\n');
+    // Serial.print("d "+tmpString+'\n');  // on Mega (fail on Uno WTF)
+
+    Serial.print("d ");                    // on Uno
+    Serial.println(tmpString);
 
     tmpString = "";
     for(int i=DATA_SPLIT;i<2*DATA_SPLIT;i++){
         tmpString += String(signalDatas[i])+' ';
     }
-    Serial.print("d "+tmpString+'\n');
+    // Serial.print("d "+tmpString+'\n');
+
+    Serial.print("d ");
+    Serial.println(tmpString);
 
     tmpString = "";
     for(int i=2*DATA_SPLIT;i<DATA_NUM;i++){
         tmpString += String(signalDatas[i])+' ';
     }
-    Serial.print("d "+tmpString+'\n');
+    // Serial.print("d "+tmpString+'\n');
+
+    Serial.print("d ");
+    Serial.println(tmpString);
 
     Serial.print("e "+ String(sampling_time)+ '\n');  // end transmitting
 
