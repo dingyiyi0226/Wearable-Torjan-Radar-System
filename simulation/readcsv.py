@@ -35,6 +35,11 @@ def readcsv(filename, today):
 def plotSingleFile(today, filename):
     """ plot time domain signal and fft signal """
 
+    peakHeight = 0.02
+    peakProminence = 0.005
+    avgPeakHeight = 0.02
+    avgPeakProminence = 0.005
+
     y, fs = readcsv(filename, today)
     print('-----------------------------')
     print('read {} file'.format(filename))
@@ -72,7 +77,7 @@ def plotSingleFile(today, filename):
     max_freq_index = int(max_freq/minFreqDiff)
 
     plt.plot(f_axis[:max_freq_index],yfn[:max_freq_index], 'r')
-    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height = 0.05, prominence=0.02)
+    peaks, _ = sg.find_peaks(yfn[:max_freq_index], height=peakHeight, prominence=peakProminence)
 
     plt.plot(peaks*minFreqDiff,[ yfn[i] for i in peaks], 'x')
     peakList = []
@@ -108,7 +113,7 @@ def plotSingleFile(today, filename):
     # plt.annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
     ## mark the peak values
-    avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-3, prominence=0.01)
+    avgPeaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height=avgPeakHeight, prominence=avgPeakProminence)
 
     plt.plot(avgPeaks*minFreqDiff,[ avgyfn[i] for i in avgPeaks], 'x')
     avgPeakList = []
@@ -154,6 +159,9 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
     """ plot fft signal for each file """
 
     fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
+
+    peakHeight = 5e-2
+    peakProminence = 1e-3
 
     refyfn=[]
 
@@ -225,7 +233,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
             ax[pltind//3, pltind%3].annotate(s=int(maxIndex*minFreqDiff), xy=(maxIndex*minFreqDiff,avgyfn[maxIndex]))
 
         else:
-            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height = 5e-2, prominence=1e-3)
+            peaks, _ = sg.find_peaks(avgyfn[:max_freq_index], height=peakHeight, prominence=peakProminence)
 
             ax[pltind//3, pltind%3].plot(peaks*minFreqDiff,[ normalizeyfn[i] for i in peaks], 'x')
             peakList = []
@@ -238,10 +246,10 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
         # ax[pltind//3, pltind%3].tick_params(bottom=False, labelbottom=False)
         ax[pltind//3, pltind%3].ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
-        if removeBG:
-            ax[pltind//3, pltind%3].set_ylim((0, 0.05))
-        else:
-            ax[pltind//3, pltind%3].set_ylim((0, 0.1))
+        # if removeBG:
+        #     ax[pltind//3, pltind%3].set_ylim((0, 0.05))
+        # else:
+        #     ax[pltind//3, pltind%3].set_ylim((0, 0.1))
 
     title = today
     if removeBG:
@@ -307,10 +315,10 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
                 # print('f2RoundUp', f2RoundUp)
                 f1List.append(f1RoundUp)
                 f2List.append(f2RoundUp)
-    elif setting['varible']=='r':
+    elif setting['varible']=='v':
         for velocity in varibleList:
 
-            timeDelay = setting['distanceOffset']/3e8
+            timeDelay = (setting['distance']+setting['distanceOffset'])/3e8
             beatFreq = timeDelay*slope
             doppFreq = velocity*2/3e8*setting['freq']
 
@@ -340,15 +348,15 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
 
         if setting['varible']=='d':
             plt.suptitle('velo: {} m/s'.format(setting['velo']))
-        elif setting['varible']=='r':
+        elif setting['varible']=='v':
             plt.suptitle('distance: {} m'.format(setting['distance']))
 
-        plt.plot(varibleList, f1List, '.m')
-        plt.plot(varibleList, f2List, '.r')
+        plt.plot(varibleList, f1List, '.:m')
+        plt.plot(varibleList, f2List, '.:r')
 
         if setting['varible']=='d':
             plt.xlabel('Distance (m)')
-        elif setting['varible']=='r':
+        elif setting['varible']=='v':
             plt.xlabel('Velocity (m/s)')
 
         plt.ylabel('Frequency (Hz)')
@@ -481,7 +489,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        # max_freq = 25e3
+        # max_freq = 4e3
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal
@@ -522,7 +530,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
     xtickPos = [i for i in range(heatmapXWidth*len(distanceList)) if i%heatmapXWidth==heatmapXWidth//2]
 
-    XTICKSAMPLE = 3
+    XTICKSAMPLE = 1
     YTICKCNT = 16
 
     fig, ax = plt.subplots(1,2, num='Figure', figsize=(10,5))
@@ -540,7 +548,6 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     ax[0].set_title('Experiment')
     ax[0].imshow(freqDataNp, cmap='gray')
 
-    ax[0].set_xlabel('Distance (m)')
     ax[0].set_xticks(xtickPos[::XTICKSAMPLE])
     ax[0].set_xticklabels(distanceList[::XTICKSAMPLE])
 
@@ -554,7 +561,15 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     im = ax[1].imshow(freqDataNp, cmap='gray')
 
     ax[1].set_title('Theoretical')
-    ax[1].set_xlabel('Distance (m)')
+
+
+    if setting['varible']=='d':
+        ax[0].set_xlabel('Distance (m)')
+        ax[1].set_xlabel('Distance (m)')
+    elif setting['varible']=='v':
+        ax[0].set_xlabel('Velocity (m/s)')
+        ax[1].set_xlabel('Velocity (m/s)')
+
     ax[1].set_xticks(xtickPos[::XTICKSAMPLE])
     ax[1].set_xticklabels(distanceList[::XTICKSAMPLE])
     ax[1].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
@@ -575,29 +590,31 @@ def main():
     DELAYLINE = 10*2.24**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0307'
+    today = '0310'
     todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
-                    'freq':5.8e9, 'varible':'d', 'distance':0, 'velo':0}
+                    'freq':5.8e9, 'varible':'d', 'distance':1, 'velo':0}
 
 
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
     filenames.sort()
 
     # filenames = filenames[:12]
 
-    distanceList = [float(i[:-5])/100 for i in filenames]
+    variableList = [float(i[:-5])/100 for i in filenames]
+    # variableList = [0,8,11,14,17]
+    # variableList = np.arange(0, 5, 0.25)
 
 
-    # plotSingleFile(today, '302.csv')
+    # plotSingleFile(today, 'u.csv')
     plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
-    # plotTheoretical(distanceList, setting=todaySetting, roundup=True)
+    # plotTheoretical(variableList, setting=todaySetting, roundup=True)
 
-    # plotExpAndTheo(today, filenames, distanceList, setting=todaySetting,
+    # plotExpAndTheo(today, filenames, variableList, setting=todaySetting,
     #                roundup=True, removeBG=False, avgFreq=False)
 
-    # plotHeatmap(today, filenames, distanceList, setting=todaySetting,
-    #             roundup=True, removeBG=False, normalizeFreq=False, avgFreq=True)
+    plotHeatmap(today, filenames, variableList, setting=todaySetting,
+                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=False)
 
 
 if __name__ == '__main__':
