@@ -29,10 +29,10 @@ class A4988:
             GPIO.setup(pin, GPIO.OUT)
 
     def stop(self):
-        GPIO.output(ENA, True)
+        GPIO.output(self.ENA, True)
 
     def start(self):
-        GPIO.output(ENA, False)
+        GPIO.output(self.ENA, False)
 
     def spin(self, deg, dir):
         # 3200 step -> 360 degrees
@@ -40,12 +40,13 @@ class A4988:
         self.start()
 
         if dir:
-            GPIO.output(DIR, False)
+            GPIO.output(self.DIR, False)
+
         else:
-            GPIO.output(DIR, True)
+            GPIO.output(self.DIR, True)
 
         for i in range(int(deg*3200/360)):
-            pulse(STEP, 5e-3)
+            pulse(self.STEP, 5e-3)
 
         self.stop()
 
