@@ -1,0 +1,199 @@
+0220:
+
+- in 527
+- moving target
+- target: iron plate*1
+- from 0 to 300 cm
+- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+
+0221:
+
+- in corridor
+- moving target
+- target: iron plate*1
+- from 0 to 500 cm
+- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+
+0222:
+
+- in corridor
+- moving radar system
+- target: iron plate*4
+- from 25 to 300 cm
+- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+
+0223:
+
+- in corridor
+- moving radar system
+- target: aluminum foil
+- from 25 to 600 cm
+- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+
+0225:
+
+- in chamber
+- moving target
+- target: iron plate*1
+- from 0 to 550 cm
+- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+
+0225fm05:
+
+- in chamber
+- moving target
+- target: iron plate*1
+- from 0 to 550 cm
+- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
+
+0225nolinefm05:
+
+- in chamber
+- moving target
+- target: iron plate*1
+- from 0 to 550 cm
+- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
+- without 10m delayline
+
+0225hornfm05:
+
+- in chamber
+- moving target
+- target: iron plate*1
+- from 0 to 550 cm
+- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
+- without 10m delayline
+- using horn antenna
+
+0305:
+
+- Frequency: 5.8G
+- variable: target(old) motor speed
+
+0307:
+
+- Frequency: 5.8G
+- variable: target(new) motor speed
+
+0308_1:
+
+- Environment: Corridor
+- Frequency: 915 MHz
+- variable: distance
+- slope: 15 MHz / 153.6µs
+- patch
+
+0308_2:
+
+- Environment: Corridor
+- Frequency: 915 MHz
+- variable: distance
+- slope: 15 MHz / 153.6µs
+- horn
+
+0308_3:
+Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
+
+- Environment: Corridor
+- Frequency: 5.8 GHz
+- Slope: 100 MHz / 2 ms
+- DelayLine: 0
+- Target:
+    Small Speed Generator
+    - Distance : Var
+    - Speed : Var
+
+0310:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Horn: False
+
+0310_5.8hornDistestSmallTarget:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Slope: 100 MHz / 2ms
+- Horn: True
+- Target:
+    Small Speed Generator
+    - Distance : Var
+    - Speed : 0
+
+0310_5.8SingleFreqSpeedtest@100cm9V:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Slope: 0 Hz / 2ms
+- Horn: True
+- Target:
+    Small Speed Generator
+    - Distance: 1 m
+    - Speed: Var
+- Validation : 
+
+0310_5.8hornSpeedtest@100cm9V:
+
+- Environment: Chamber
+- DelayLine: 0
+- Horn: True
+- Target
+    Small Speed Generator
+    - Distance: 1 m
+    - Speed: Var 
+
+0310_5.8hornSpeedtest@100cm12V:
+
+- Environment: Chamber
+- DelayLine: 0
+- Horn: True
+- Target:
+    Small Speed Generator
+    - Distance: 1 m
+    - Speed: Var
+
+0312:
+
+- Environment: Chamber
+- Frequency: 886 MHz
+- Ramp Mode: Continuous Triangular 
+- Slope: 15 MHz / 307.4 us
+- DelayLine: 10 m
+- Target:
+    Vertical plane
+
+0312delay:
+
+- Environment: Chamber
+- Frequency: 886 MHz
+- Ramp Mode: Continuous Triangular 
+- DualRamp: 
+    - Slope1: 15 MHz / 307.4 us
+    - Slope2:  0  Hz / 307.4 us
+- DelayLine: 10 m
+- Target:
+    Vertical plane
+
+0312h:
+
+- Environment: Chamber
+- Frequency: 886 MHz
+- Ramp Mode: Continuous Triangular 
+- DualRamp: 
+    - Slope1: 15 MHz / 307.4 us
+    - Slope2:  0  Hz / 307.4 us
+- DelayLine: 10 m
+- Target:
+    Horizontal plane
+
+0312h3:
+
+- Environment: Chamber
+- Frequency: 886 MHz
+- Ramp Mode: Continuous Triangular 
+- DualRamp:
+    - Slope1: 15 MHz / 307.4 us
+    - Slope2:  0  Hz / 921.8 us
+- DelayLine: 10m
+- Target:
+    Horizontal plane
