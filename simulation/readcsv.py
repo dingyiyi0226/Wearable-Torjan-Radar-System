@@ -7,6 +7,8 @@ import numpy as np
 import random as rd
 import scipy.signal as sg
 
+from matplotlib.image import NonUniformImage
+
 def roundto(num, tick):
     if (num/tick - num//tick) < 0.5:
         return math.floor(num/tick) * tick
@@ -288,8 +290,10 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
     slope = setting['BW']/setting['tm']*2
     freqRes = 1/setting['simTime']
 
-    print('fm', fm)
-    print('freqRes', freqRes)
+    print('===================================')
+    print('fm:', fm)
+    print('freqRes:', freqRes)
+    print('===================================')
 
     f1List = []
     f2List = []
@@ -460,7 +464,10 @@ def plotExpAndTheo(today, filenames, distanceList, setting, roundup, removeBG, a
     plt.show()
 
 def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, normalizeFreq, avgFreq):
-    """ plot fft signal at each distance in heatmap """
+    """ plot fft signal at each distance in heatmap
+
+    this method is *deprecated*
+    """
 
     freqData = []
     refyfn=[]
@@ -492,7 +499,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        max_freq = 15000
+        # max_freq = 15000
         max_freq_index = int(max_freq/minFreqDiff)
         heatmapXWidth=max_freq_index//len(distanceList)  ## pixels of x axis
 
@@ -592,6 +599,144 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     plt.show()
 
 
+def plotMap(today, filenames, distanceList, setting, roundup, removeBG, normalizeFreq, avgFreq):
+    """ plot fft signal at each distance in heatmap (using NonUniformImage) """
+
+    freqData = []
+    refyfn=[]
+
+    for pltind, filename in enumerate(filenames):
+
+        y, fs = readcsv(filename, today)
+        print('-----------------------------')
+        print('read {} file'.format(filename))
+        N = len(y)                          ## number of simulation data points
+        minFreqDiff = fs/N                  ## spacing between two freqencies on axis
+        print('N =', N)
+        print('fs =', fs)
+        print('minFreqDiff =',minFreqDiff)
+
+        t_axis = [i/fs for i in range(N)]
+        f_axis = [i*minFreqDiff for i in range(N)]
+
+        yf = abs(np.fft.fft(y))
+        # yfs = np.fft.fftshift(yf)         ## shift 0 frequency to middle
+                                            ## [0,1,2,3,4,-4,-3,-2,-1] -> [-4,-3,-2,-1,0,1,2,3,4]
+                                            ## (-fs/2, fs/2)
+                                            ## just plot the positive frequency, so dont need to shift
+
+        yfn = [i*2/N for i in yf]           ## normalization
+                                            ## let the amplitude of output signal equals to inputs
+
+
+        max_freq = (len(f_axis)//2)*minFreqDiff
+        max_freq = 15000
+        max_freq_index = int(max_freq/minFreqDiff)
+
+        ## remove background signal
+
+        offsetyfn = yfn
+        if removeBG:
+            if pltind==0:
+                refyfn=yfn
+                offsetyfn = [0 for i in offsetyfn]
+            else:
+                # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
+                offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
+
+        ## normalize siganl amplitude for different distance
+
+        normalizeyfn = offsetyfn
+
+        if normalizeFreq:
+            normalizeyfn = [i*(pltind*0.25)**0.3 for i in offsetyfn]
+
+        ## take average of frequencies
+
+        avgyfn = normalizeyfn
+
+        if avgFreq:
+            AVGTICK = 3
+            fm = 1/setting['tm']
+            avgLength = int(fm/minFreqDiff*AVGTICK)
+            window = np.ones(avgLength)
+            # window = sg.gaussian(avgLength, std=int(fm/minFreqDiff*0.5))
+            avgyfn = sg.oaconvolve(normalizeyfn, window/window.sum(), mode='same')
+
+        freqData.append(avgyfn[:max_freq_index])
+
+    # print(freqList)
+    freqDataNp = np.array(freqData).transpose()
+
+
+    ## map config
+
+    YTICKCNT = 16
+    CMAP = 'gray'
+    INTERP = 'nearest'
+
+    fig, ax = plt.subplots(1,2, num='Figure', figsize=(8,4), constrained_layout=True)
+
+    title = today
+    if removeBG:
+        title+=' remove background'
+    if normalizeFreq:
+        title+=' normalizeFreq'
+    if avgFreq:
+        title+=' avgFreq'
+
+    fig.suptitle(title)
+
+    im = NonUniformImage(ax[0], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
+    im.set_data(distanceList, np.arange(max_freq_index), freqDataNp)
+    ax[0].images.append(im)
+
+    ax[0].set_title('Experiment')
+    # ax[0].set_xticks(distanceList[::1])
+    ax[0].set_xlim(0, distanceList[-1])
+
+    ax[0].set_ylabel('Frequency (Hz)')
+    ax[0].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
+    # ax[0].set_yticklabels(np.linspace(0, max_freq, YTICKCNT, dtype=int))
+    ax[0].set_ylim(0, max_freq_index)
+
+    ax[0].tick_params(right=True, left=False, labelleft=False)
+
+    if setting['varible']=='d':
+        ax[0].set_xlabel('Distance (m)')
+    elif setting['varible']=='v':
+        ax[0].set_xlabel('Velocity (m/s)')
+
+
+    im = NonUniformImage(ax[1], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
+    im.set_data(distanceList, np.arange(max_freq_index), freqDataNp)
+    ax[1].images.append(im)
+
+    ax[1].set_title('Theoretical')
+
+    # ax[1].set_xticks(distanceList[::1])
+    ax[1].set_xlim(0, distanceList[-1])
+
+    ax[1].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
+    ax[1].set_yticklabels(np.linspace(0, max_freq, YTICKCNT, dtype=int))
+    ax[1].set_ylim(0, max_freq_index)
+
+    if setting['varible']=='d':
+        ax[1].set_xlabel('Distance (m)')
+    elif setting['varible']=='v':
+        ax[1].set_xlabel('Velocity (m/s)')
+
+
+    theoF1List, theoF2List = plotTheoretical(distanceList, setting, roundup, doPlot=False)
+    ax[1].plot(distanceList, [i//minFreqDiff for i in theoF1List], '.:m')
+    ax[1].plot(distanceList, [i//minFreqDiff for i in theoF2List], '.:r')
+
+
+    # plt.subplots_adjust(wspace=0.25)
+    plt.colorbar(im, ax=ax.ravel().tolist())
+    plt.show()
+
+
 def main():
 
     ## Settings definitions at plotTheoretical() documentation
@@ -599,8 +744,8 @@ def main():
     DELAYLINE = 10*2**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0312h'
-    todaySetting = {'BW':15e6, 'tm':607e-6, 'delayTmRatio':1, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
+    today = '0312h3'
+    todaySetting = {'BW':15e6, 'tm':607e-6, 'delayTmRatio':3, 'simTime':24e-3, 'distanceOffset':DELAYLINE+SETUPLINE,
                     'freq':915e6, 'varible':'d', 'distance':1, 'velo':0}
 
 
@@ -626,8 +771,12 @@ def main():
     # plotExpAndTheo(today, filenames, variableList, setting=todaySetting,
     #                roundup=True, removeBG=False, avgFreq=False)
 
-    plotHeatmap(today, filenames, variableList, setting=todaySetting,
-                roundup=True, removeBG=False, normalizeFreq=False, avgFreq=False)
+    plotMap(today, filenames, variableList, setting=todaySetting,
+            roundup=True, removeBG=True, normalizeFreq=True, avgFreq=False)
+
+    ## deprecated
+    # plotHeatmap(today, filenames, variableList, setting=todaySetting,
+    #             roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
 
 
 if __name__ == '__main__':
