@@ -110,6 +110,7 @@ Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
 - Horn: False
 
 0310_5.8hornDistestSmallTarget:
+Alias: 0310_4
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
@@ -121,6 +122,7 @@ Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
     - Speed : 0
 
 0310_5.8SingleFreqSpeedtest@100cm9V:
+Alias: 0310_2
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
@@ -133,6 +135,7 @@ Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
 - Validation : 
 
 0310_5.8hornSpeedtest@100cm9V:
+Alias: 0310_3
 
 - Environment: Chamber
 - DelayLine: 0
@@ -143,6 +146,7 @@ Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
     - Speed: Var 
 
 0310_5.8hornSpeedtest@100cm12V:
+Alias: 0310_5
 
 - Environment: Chamber
 - DelayLine: 0
