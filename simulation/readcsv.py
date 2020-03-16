@@ -266,6 +266,8 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
 
 def plotTheoretical(varibleList, setting, roundup, doPlot=True):
     """ plot threoretical frequency
+
+        settings:
        
            ↑
          _ |         /\                 /\
@@ -557,6 +559,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     ax[0].set_ylabel('Frequency (Hz)')
     ax[0].set_yticks(np.linspace(0,max_freq_index,YTICKCNT))
     ax[0].set_yticklabels(np.flip(np.linspace(0, max_freq, YTICKCNT, dtype=int)))
+    ax[0].set_ylim((max_freq_index, 0))
 
     ax[0].tick_params(right=True, left=False, labelleft=False)
 
@@ -581,6 +584,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     theoF1List, theoF2List = plotTheoretical(distanceList, setting, roundup, doPlot=False)
     ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoF1List], '.:m')
     ax[1].plot(xtickPos, [(max_freq-i)//minFreqDiff for i in theoF2List], '.:r')
+    ax[1].set_ylim((max_freq_index, 0))
 
 
     plt.subplots_adjust(wspace=0.25)
@@ -590,22 +594,27 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 def main():
 
+    ## Settings definitions at plotTheoretical() documentation
+
     DELAYLINE = 10*2**0.5
     SETUPLINE = 1*2.24**0.5
 
     today = '0312h'
-    todaySetting = {'BW':15e6, 'tm':615.2e-6, 'delayTmRatio':3, 'simTime':24e-3, 'distanceOffset':DELAYLINE+SETUPLINE,
-                    'freq':886e6, 'varible':'d', 'distance':1, 'velo':0}
+    todaySetting = {'BW':15e6, 'tm':607e-6, 'delayTmRatio':1, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
+                    'freq':915e6, 'varible':'d', 'distance':1, 'velo':0}
 
 
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv')]
     filenames.sort()
 
     # filenames = filenames[:12]
 
     variableList = [float(i[:-5])/100 for i in filenames]
     # variableList = [0,10,12,14, 16, 18, 20, 22]
-    # variableList = [0,8,11,14,17]
+    # variableList = [0,8,11,14,16]
+
+    # variableList = [i-2 for i in variableList]
+    # variableList[0] = 0
     # variableList = np.arange(0, 5, 0.25)
 
 
