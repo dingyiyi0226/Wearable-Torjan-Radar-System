@@ -189,7 +189,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
                                             ## let the amplitude of output signal equals to inputs
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        # max_freq = 25e3
+        max_freq = 10e3
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal
@@ -268,17 +268,18 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
     """ plot threoretical frequency
        
            ↑
-         _ |         /\          /\
-         ↑ |      /\/  \      /\/  \
-         | |     / /\   \    / /\   \
-         B |    / /  \   \  / /  \
-         W |   / /    \   \/ /    \
-         | |  / /      \  /\/      \
-         ↓ | /          \/          \
+         _ |         /\                 /\
+         ↑ |      /\/  \             /\/  \
+         | |     / /\   \           / /\   \
+         B |    / /  \   \         / /  \
+         W |   / /    \   \       / /    \
+         | |  / /      \   \_____/_/      \
+         ↓ | /          \_______/          \
          ¯ + -------------------------->
-             |<-- tm -->|
+             |<-- tm -->|<-tm2->|
              |<----   simTime   ---->|
 
+        delayTmRatio = tm2 / tm
     """
 
     fm = 1/setting['tm']
@@ -303,8 +304,8 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
             f1 = beatFreq+doppFreq
             f2 = abs(beatFreq-doppFreq)
 
-            f1RoundUp = roundto(roundto(f1, fm), freqRes)
-            f2RoundUp = roundto(roundto(f2, fm), freqRes)
+            f1RoundUp = roundto(roundto(f1, fm/(setting['delayTmRatio']+1)), freqRes)
+            f2RoundUp = roundto(roundto(f2, fm/(setting['delayTmRatio']+1)), freqRes)
             if not roundup:
                 # print('f1', f1)
                 # print('f2', f2)
@@ -462,7 +463,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
     freqData = []
     refyfn=[]
 
-    heatmapXWidth=600//len(distanceList)  ## pixels of x axis
+    # heatmapXWidth=600//len(distanceList)  ## pixels of x axis
 
     for pltind, filename in enumerate(filenames):
 
@@ -489,8 +490,9 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        # max_freq = 4e3
+        max_freq = 15000
         max_freq_index = int(max_freq/minFreqDiff)
+        heatmapXWidth=max_freq_index//len(distanceList)  ## pixels of x axis
 
         ## remove background signal
 
@@ -498,6 +500,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
         if removeBG:
             if pltind==0:
                 refyfn=yfn
+                offsetyfn = [0 for i in offsetyfn]
             else:
                 # offsetyfn = [yfn[i]-refyfn[i] for i in range(max_freq_index)]
                 offsetyfn = [max(0, yfn[i]-refyfn[i]) for i in range(max_freq_index)]
@@ -507,7 +510,7 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
         normalizeyfn = offsetyfn
 
         if normalizeFreq:
-            normalizeyfn = [i*(pltind*0.25)**1 for i in offsetyfn]
+            normalizeyfn = [i*(pltind*0.25)**0.3 for i in offsetyfn]
 
         ## take average of frequencies
 
@@ -587,12 +590,12 @@ def plotHeatmap(today, filenames, distanceList, setting, roundup, removeBG, norm
 
 def main():
 
-    DELAYLINE = 10*2.24**0.5
+    DELAYLINE = 10*2**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0310'
-    todaySetting = {'BW':99.9969e6, 'tm':4096e-6, 'simTime':24e-3, 'distanceOffset':SETUPLINE,
-                    'freq':5.8e9, 'varible':'d', 'distance':1, 'velo':0}
+    today = '0312h'
+    todaySetting = {'BW':15e6, 'tm':615.2e-6, 'delayTmRatio':3, 'simTime':24e-3, 'distanceOffset':DELAYLINE+SETUPLINE,
+                    'freq':886e6, 'varible':'d', 'distance':1, 'velo':0}
 
 
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
@@ -601,12 +604,13 @@ def main():
     # filenames = filenames[:12]
 
     variableList = [float(i[:-5])/100 for i in filenames]
+    # variableList = [0,10,12,14, 16, 18, 20, 22]
     # variableList = [0,8,11,14,17]
     # variableList = np.arange(0, 5, 0.25)
 
 
-    # plotSingleFile(today, 'u.csv')
-    plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
+    # plotSingleFile(today, '2001.csv')
+    # plotMultipleFile(today, filenames, removeBG=False, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(variableList, setting=todaySetting, roundup=True)
 
@@ -614,7 +618,7 @@ def main():
     #                roundup=True, removeBG=False, avgFreq=False)
 
     plotHeatmap(today, filenames, variableList, setting=todaySetting,
-                roundup=True, removeBG=True, normalizeFreq=False, avgFreq=False)
+                roundup=True, removeBG=False, normalizeFreq=False, avgFreq=False)
 
 
 if __name__ == '__main__':
