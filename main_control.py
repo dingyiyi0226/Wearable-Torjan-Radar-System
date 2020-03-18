@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import ADF4158
+import A4988
 from view import PPIView, SigView
 
 # GND  = 6      # T3
@@ -23,8 +24,12 @@ LE     = 18     # T6
 TXDATA = 13     # T16
 MUXOUT = 15     # T8
 
+STEP = 3
+DIR = 5
+ENA = 7
+
 class FMCWRadar:
-    """FMCW Radar model for each freqency"""
+    """ FMCW Radar model for each freqency """
 
     def __init__(self, freq, BW, tm):
 
@@ -35,7 +40,7 @@ class FMCWRadar:
         self._BW = BW
         self._tm = tm
         self._fm = 1/tm
-        self._distanceOffset = 1*2.24**0.5
+        self._distanceOffset = 1 * 2.24 ** 0.5
 
         ## SIGNAL GENERATOR MODULE
 
@@ -62,6 +67,14 @@ class FMCWRadar:
 
     # TODO
     def setModuleProperty(self, tm):
+        pass
+
+    # TODO
+    def setDirection(self, direction):
+        pass
+
+    # TODO
+    def alignDirection(self):
         pass
 
     ## SIGNAL PROCESSING FUNCTIONS
@@ -122,15 +135,19 @@ class FMCWRadar:
         # self.realTimeSig['avgFreqSig'] = self.realTimeSig['freqSig']
 
     def _findFreqPair(self) -> bool:
-        """split the freqs in `_peakFreq` with same intensity into pairs
+        """
+        Split the freqs in `_peakFreq` with same intensity into pairs
         
-        Returns:
-            return false if no peak frequency is found
+        Return
+        ------
+        status : bool
+            false if no peak frequency is found.
         """
 
         PEAK_DIFF = 1e-4  ## we assume two peak belong to same object if and only if the amplitude
                           ## difference between two peaks < PEAK_DIFF
         sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['avgFreqSig'][k], reverse=True)
+
         if not sortedFreqIndex: return False
 
         freqAmplitude = 0
@@ -143,6 +160,7 @@ class FMCWRadar:
                 freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
                 tmpFreqIndex = freqIndex
                 continue
+
             if (freqAmplitude - self.realTimeSig['avgFreqSig'][freqIndex]) < PEAK_DIFF:
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), int(freqIndex/self._samplingTime)))
                 freqAmplitude = 0.
@@ -152,12 +170,16 @@ class FMCWRadar:
                 freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
                 tmpFreqIndex = freqIndex
             # print(freqIndex)
+
         if freqAmplitude != 0:
             self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
+
         return True
 
     def _calculateInfo(self):
-        """calculate range and velocity of every object from `_objectFreqs`"""
+        """
+        Calculate range and velocity of every object from `_objectFreqs`
+        """
 
         # print('calculateInfo', self._objectFreqs)
         objRange = 0.
@@ -201,19 +223,21 @@ class FMCWRadar:
     def _freq2Velo(self, freq):
         return freq / self._freq * 3e8 / 2
 
+    # TODO
     def _beatFreqLim(self):
-        # TODO:
-
         pass
 
 def read(ser, radar, readEvent):
-    """read signal at anytime in other thread"""
+    """
+    read signal at anytime in other thread
+    """
 
     while True:
         readEvent.wait()
         ## maybe have to reset buffer
         try:
             s = ser.readline().decode()
+    
             if s.startswith('i'):
                 radar.resetSignal()
 
@@ -222,7 +246,7 @@ def read(ser, radar, readEvent):
                 try:
                     radar.readSignal(signal=[float(i) for i in s[2:].split()])
                 except ValueError:
-                    print('Value Error: ',s[2:])
+                    print('Value Error: ', s[2:])
                     continue
 
             elif s.startswith('e'):
@@ -230,7 +254,7 @@ def read(ser, radar, readEvent):
                 try:
                     radar.endReadSignal(time=float(s[2:]))
                 except ValueError:
-                    print('Value Error: ',s[2:])
+                    print('Value Error: ', s[2:])
                     continue
 
             else:
@@ -243,13 +267,28 @@ def read(ser, radar, readEvent):
         time.sleep(0.001)
 
 def readSimSignal(filename, samFreq, samTime, radar, readEvent):
-    """without connecting to Arduino, read signal from data"""
+    """ 
+    without connecting to Arduino, read signal from data 
+
+    Parameters
+    ----------
+    radar : 
+
+    filename :
+
+    samFreq :
+    
+    samTime :
+
+    
+    """
     
     simSignal = []
     simSampFreq = 0
 
     with open('rawdata/0225nolinefm05/'+filename+'.csv') as file:
         datas = csv.reader(file)
+
         for ind, data in enumerate(datas):
             if ind==0: continue
             elif ind==1:
@@ -260,9 +299,11 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
     samSig = []
     i=1
     j=random.randrange(len(simSignal))
+
     while True:
         readEvent.wait()
-        if i % int(samTime*samFreq) != 0:
+
+        if i % int(samTime * samFreq) != 0:
             samSig.append(simSignal[(int(j+i*simSampFreq/samFreq) % len(simSignal))])
 
         else:
@@ -274,6 +315,7 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
             radar.endReadSignal(time=samTime*1e6 )
             samSig = []
             time.sleep(0.001)
+
         i+=1
 
 def port() -> str:
@@ -281,7 +323,7 @@ def port() -> str:
 
     try:
         ## on mac
-        if(sys.platform.startswith('darwin')):
+        if sys.platform.startswith('darwin'):
             ports = os.listdir('/dev/')
             for i in ports:
                 if i[0:-2] == 'tty.usbserial-14':
@@ -289,7 +331,7 @@ def port() -> str:
                     break;
             port = '/dev/' + port
         ## on rpi
-        if(sys.platform.startswith('linux')):
+        if (sys.platform.startswith('linux')):
             ports = os.listdir('/dev/')
             for i in ports:
                 if i[0:-1] == 'ttyUSB':
@@ -337,14 +379,14 @@ def main():
 
             elif s.startswith('read'):
                 if readEvent.is_set():
-                    print('has been reading signal')
+                    print('Has been reading signal')
                 else:
                     print('Reading Signal')
                     readEvent.set()
 
             elif s.startswith('stop'):
                 if not readEvent.is_set():
-                    print('not been reading signal')
+                    print('Not been reading signal')
                 else:
                     readEvent.clear()
                     print('Stop Reading Signal')
@@ -389,7 +431,18 @@ def main():
 
             # TODO: ADF4158 module
             elif s.startswith('setfreq'):
-                # radar.setModuleProperty()
+                pass
+
+            # TODO: ADF4158 module
+            elif s.startswith('setModulation'):
+                pass
+
+            # TODO: A4988 module
+            elif s.startswith('setdirection'):
+                pass
+
+            # TODO: A4988 module and FMCWRadar
+            elif s.startswith('resetdirection'):
                 pass
 
             elif s.startswith('info'):
@@ -403,7 +456,9 @@ def main():
 
     except KeyboardInterrupt:
         pass
-    finally: print('Quit main')
+
+    finally: 
+        print('Quit main')
 
     # ser.close()
 

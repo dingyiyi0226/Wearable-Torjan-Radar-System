@@ -1,3 +1,6 @@
+#define DATA_NUM 2940
+#define SEGMENTS 4
+#define DATA_SPLIT (DATA_NUM / SEGMENTS)
 
 // Define input pin
 int IN[4] = {A0,A1,A2,A3};
@@ -10,9 +13,7 @@ void setup() {
 }
 
 unsigned long sampling_time, timetmp;
-const int DATA_NUM = 500;
-const int DATA_SPLIT = DATA_NUM/3;
-int signalDatas[DATA_NUM] = {0};
+int signalDatas[DATA_NUM];
 String tmpString = "";
 
 void loop() {
@@ -20,7 +21,7 @@ void loop() {
     // --------- Sampling datas --------- //
 
     timetmp = micros();
-    for(int i=0;i<DATA_NUM;i++){
+    for(int i=0; i < DATA_NUM; i++){
         signalDatas[i] = analogRead(IN[0]);
     }
     sampling_time = micros() - timetmp;
@@ -32,34 +33,21 @@ void loop() {
 
     Serial.print("i\n");                              // start transmitting
 
-    tmpString = "";
-    for(int i=0;i<DATA_SPLIT;i++){
-        tmpString += String(signalDatas[i])+' ';
+    for (int i = 0; i < SEGMENTS; ++i) {
+        tmpString = "";
+        
+        for (int i = 0; i < DATA_SPLIT; i++) {
+            tmpString += String(signalDatas[i])+' ';
+        }
+
+        // Serial.print("d "+tmpString+'\n');  // on Mega (fail on Uno WTF)
+    
+        Serial.print("d ");                    // on Uno
+        Serial.println(tmpString);
+
     }
-    // Serial.print("d "+tmpString+'\n');  // on Mega (fail on Uno WTF)
-
-    Serial.print("d ");                    // on Uno
-    Serial.println(tmpString);
-
-    tmpString = "";
-    for(int i=DATA_SPLIT;i<2*DATA_SPLIT;i++){
-        tmpString += String(signalDatas[i])+' ';
-    }
-    // Serial.print("d "+tmpString+'\n');
-
-    Serial.print("d ");
-    Serial.println(tmpString);
-
-    tmpString = "";
-    for(int i=2*DATA_SPLIT;i<DATA_NUM;i++){
-        tmpString += String(signalDatas[i])+' ';
-    }
-    // Serial.print("d "+tmpString+'\n');
-
-    Serial.print("d ");
-    Serial.println(tmpString);
-
-    Serial.print("e "+ String(sampling_time)+ '\n');  // end transmitting
+    
+    Serial.println(sampling_time);  // end transmitting
 
     // ---------------------------------- //
 }
