@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 import warnings
+from datetime import datetime
 from collections import namedtuple
 
 import numpy as np
@@ -346,10 +347,14 @@ def port() -> str:
 
 
 def main():
+    # For file writing (Command: Save)
+    # Please refactor it QQ.
+    # now = datetime.today().strftime('%Y%m%d-%H%M%S')
+    now = datetime.today().strftime('%Y%m%d')
 
     ## Port Connecting
-    # ser = serial.Serial(port())
-    # print('Successfully open port: ', ser)
+    ser = serial.Serial(port())
+    print('Successfully open port: ', ser)
 
     ## initialize the model
     radar = FMCWRadar(freq=58e8 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
@@ -358,11 +363,11 @@ def main():
     readEvent  = threading.Event()
 
     ## practical version
-    # readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
+    readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
 
     ## simulation version
-    readThread = threading.Thread(target=readSimSignal, daemon=True,
-        kwargs={'filename':'3502', 'samFreq':1e4, 'samTime':2.4e-2, 'radar':radar, 'readEvent':readEvent})
+    # readThread = threading.Thread(target=readSimSignal, daemon=True,
+    #     kwargs={'filename':'3502', 'samFreq':1e4, 'samTime':2.4e-2, 'radar':radar, 'readEvent':readEvent})
     
     readThread.start()
     print('Reading Signal')
@@ -417,17 +422,27 @@ def main():
                 views.clear()
 
             elif s.startswith('save'):
-                """ save time domain signal """
+                """ Save time domain signal """
                 
-                distance = input('distances: ').strip()
-                today = '0307'
+                distance = input('Distances: ').strip()
+                comments = input('Comments: ').strip()
 
-                with open('./rawdata/{}/arduino_{}.csv'.format(today, distance), 'w') as file:
+                path = './rawdata/arduino/{}'.format(now)
+                if not os.path.exists(path):
+                    os.makedirs(path)
+
+                if os.path.exists(os.path.join(path, distance + '.csv')):
+                    print("File exists. Overwrite it.")
+            
+                with open(os.path.join(path, distance + '.csv'), 'w') as file:
                     writer = csv.writer(file)
-                    writer.writerow(['X','Sig','','Increment'])
-                    writer.writerow(['','','',str(radar.realTimeSig['timeAxis'][1])])
+                    writer.writerow(['X', 'Sig', '', 'Increment'])
+                    writer.writerow(['', '', '', str(radar.realTimeSig['timeAxis'][1])])
+                    
                     for ind, i in enumerate(radar.realTimeSig['timeSig']):
                         writer.writerow([ind, i])
+
+                print("File is saved at: {}".format(os.path.join(path, distance + '.csv')))
 
             # TODO: ADF4158 module
             elif s.startswith('setfreq'):
@@ -445,12 +460,16 @@ def main():
             elif s.startswith('resetdirection'):
                 pass
 
+            # TODO: Temp function
+            elif s.startswith('flush'):
+                ser.reset_input_buffer()
+
             elif s.startswith('info'):
                 print(radar.info)
-            elif s.startswith('test'):
-                print('hello world')
+
             elif s.startswith('q'):
                 break
+
             else:
                 print('Undefined Command')
 

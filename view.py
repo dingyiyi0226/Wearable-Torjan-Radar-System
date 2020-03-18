@@ -12,19 +12,19 @@ class SigView:
 
         # Axis[0]: Signal in Time Domain
         self.ax[0].set_xlim(0, maxTime)
-        self.ax[0].set_ylim(-0.3, 0.3)
-        # self.ax[0].set_ylim(0, 1)  # on arduino
+        # self.ax[0].set_ylim(-0.3, 0.3)
+        self.ax[0].set_ylim(0, 1)  # on arduino
         self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
         # Axis[1]: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
-        self.ax[1].set_ylim(0, 0.15)
-        # self.ax[1].set_ylim(0, 1)  # on arduino
+        # self.ax[1].set_ylim(0, 0.15)
+        self.ax[1].set_ylim(0, 0.05)  # on arduino
 
         # Axis[2]: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
-        self.ax[2].set_ylim(0, 0.15)
-        # self.ax[2].set_ylim(0, 1)  # on arduino
+        # self.ax[2].set_ylim(0, 0.15)
+        self.ax[2].set_ylim(0, 0.05)  # on arduino
 
         self.fig.subplots_adjust(left=0.3, hspace=0.3)
 
@@ -48,9 +48,9 @@ class SigView:
 
         ## if you needs to set ax.x_lim dynamically, blit has to be False
 
-        # self.ax[0].set_xlim(0, sigDict['timeAxis'][-1])
-        # self.ax[1].set_xlim(0, sigDict['freqAxis'][-1])
-        # self.ax[2].set_xlim(0, sigDict['freqAxis'][-1])
+        self.ax[0].set_xlim(0, sigDict['timeAxis'][-1])
+        self.ax[1].set_xlim(0, sigDict['freqAxis'][-1])
+        self.ax[2].set_xlim(0, sigDict['freqAxis'][-1])
 
         self.timeLine.set_data(sigDict['timeAxis'], sigDict['timeSig'])
         self.freqLine.set_data(sigDict['freqAxis'], sigDict['freqSig'])
