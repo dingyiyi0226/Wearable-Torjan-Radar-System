@@ -50,14 +50,35 @@ class A4988:
 
         self.stop()
 
+    def spinBnF(self, iter, deg):
+        """ spin back and forth """
+
+        for i in range(iter):
+            self.spin(deg, True)
+            time.sleep(0.5)
+            self.spin(deg, False)
+            time.sleep(0.5)
+
+    def spinSteps(self, deg, step):
+        """ spin `deg` degrees for `step` steps """
+
+        for i in range(step):
+            self.spin(deg, True)
+            time.sleep(0.5)
+
 def main():
 
     try:
-        module = A4988(7, 3, 5)
+        module = A4988(ENA=7, STEP=3, DIR=5)
 
-        while(1):
-            s = input('deg: ')
-            module.spin(int(s), True)
+        # module.spinBnF(iter=20, deg=180)
+        module.spinSteps(deg=10, step=36*5)
+
+        # while(1):
+
+        #     s = input('deg: ')
+        #     t = input('dir(0, 1): ')
+        #     module.spin(int(s), int(t))
 
     except KeyboardInterrupt:
         GPIO.cleanup()
