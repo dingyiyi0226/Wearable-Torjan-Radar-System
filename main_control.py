@@ -106,10 +106,10 @@ class FMCWRadar:
 
     def _signalProcessing(self):
         self._fft()
-        if not self._findFreqPair():
-            print('no peak frequency')
-            return
-        self._calculateInfo()
+        # if not self._findFreqPair():
+        #     print('no peak frequency')
+        #     return
+        # self._calculateInfo()
 
     def _fft(self):
         """perform fft on `_signal`"""
@@ -236,8 +236,12 @@ def read(ser, radar, readEvent):
     while True:
         readEvent.wait()
         ## maybe have to reset buffer
+
+        ser.write(b'r ')
+        # print(ser.readline().decode().strip())
+
         try:
-            s = ser.readline().decode()
+            s = ser.readline().decode().strip()
     
             if s.startswith('i'):
                 radar.resetSignal()
@@ -258,8 +262,11 @@ def read(ser, radar, readEvent):
                     print('Value Error: ', s[2:])
                     continue
 
+            elif s.startswith('init'):
+                pass
+
             else:
-                print('Read: ', s)
+                print('\nRead: ', s)
 
         except UnicodeDecodeError:
             print('UnicodeDecodeError')
@@ -268,12 +275,12 @@ def read(ser, radar, readEvent):
         time.sleep(0.001)
 
 def readSimSignal(filename, samFreq, samTime, radar, readEvent):
-    """ 
-    without connecting to Arduino, read signal from data 
+    """
+    without connecting to Arduino, read signal from data
 
     Parameters
     ----------
-    radar : 
+    radar :
 
     filename :
 
@@ -353,7 +360,7 @@ def main():
     now = datetime.today().strftime('%Y%m%d')
 
     ## Port Connecting
-    ser = serial.Serial(port())
+    ser = serial.Serial(port(), baudrate=115200)
     print('Successfully open port: ', ser)
 
     ## initialize the model
@@ -398,11 +405,11 @@ def main():
 
 
             elif s.startswith('sig'):
-                # view = SigView(maxFreq=2e3, maxTime=0.2)  # for arduino
-                view = SigView(maxFreq=10e3, maxTime=1e-2)  # for simulation
+                view = SigView(maxFreq=5e3, maxTime=0.2)  # for arduino
+                # view = SigView(maxFreq=10e3, maxTime=1e-2)  # for simulation
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
-                    init_func=view.init, interval=20, blit=False,
+                    init_func=view.init, interval=100, blit=True,
                     fargs=(radar.realTimeSig,))
                 view.figShow()
 
@@ -411,7 +418,7 @@ def main():
                 views.append(view)
 
                 animation = FuncAnimation(view.fig, view.update,
-                    frames=100, init_func=view.init, interval=20, blit=True,
+                    frames=100, init_func=view.init, interval=100, blit=True,
                     fargs=(radar.direction, radar.info[radar.direction]))
 
                 view.figShow()
@@ -476,7 +483,7 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    finally: 
+    finally:
         print('Quit main')
 
     # ser.close()
