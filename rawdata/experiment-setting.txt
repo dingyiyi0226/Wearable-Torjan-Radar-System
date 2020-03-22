@@ -201,3 +201,44 @@ Alias: 0310_5
 - DelayLine: 10m
 - Target:
     Horizontal plane
+
+0318:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Ramp:
+    - Extend tm
+- DelayLine: 0 motor
+- Data Source: Arduino
+- Target:
+    Horizontal plane
+
+0318tm:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Slope: 100MHz / 68 ms
+
+0318shiftval:
+
+- Frequency: 5.8 GHz
+- Ramp Mode: Single Frequency
+
+
+0318res:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Slope: 100MHz / 68 ms
+- Multiple Objects
+- Target: People
+
+0318fmcw:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Slope: 100MHz / 68 ms
