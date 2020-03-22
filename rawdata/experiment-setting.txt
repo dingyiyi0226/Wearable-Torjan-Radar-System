@@ -233,7 +233,7 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100MHz / 68 ms
-- Multiple Objects
+- Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
 - Target: People
 
 0318fmcw:

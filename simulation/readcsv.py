@@ -162,8 +162,8 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
 
     fig, ax =  plt.subplots(math.ceil(len(filenames)/3), 3, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
 
-    peakHeight = 5e-2
-    peakProminence = 1e-3
+    peakHeight = 0.45
+    peakProminence = 1e-2
 
     refyfn=[]
 
@@ -191,7 +191,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
                                             ## let the amplitude of output signal equals to inputs
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        max_freq = 10e3
+        # max_freq = 10e3
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal
@@ -218,7 +218,7 @@ def plotMultipleFile(today, filenames, removeBG, normalizeFreq, avgFreq):
 
         if avgFreq:
             AVGTICK = 3
-            assumeFm = 250
+            assumeFm = 100
             avgLength = int(assumeFm/minFreqDiff*AVGTICK)
             window = np.ones(avgLength)
 
@@ -328,6 +328,9 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
             timeDelay = (setting['distance']+setting['distanceOffset'])/3e8
             beatFreq = timeDelay*slope
             doppFreq = velocity*2/3e8*setting['freq']
+
+            # print('beatFreq:', beatFreq)
+            # print('doppFreq:', doppFreq)
 
             f1 = beatFreq+doppFreq
             f2 = abs(beatFreq-doppFreq)
@@ -630,7 +633,7 @@ def plotMap(today, filenames, distanceList, setting, roundup, removeBG, normaliz
 
 
         max_freq = (len(f_axis)//2)*minFreqDiff
-        max_freq = 15000
+        # max_freq = 300
         max_freq_index = int(max_freq/minFreqDiff)
 
         ## remove background signal
@@ -664,9 +667,15 @@ def plotMap(today, filenames, distanceList, setting, roundup, removeBG, normaliz
             avgyfn = sg.oaconvolve(normalizeyfn, window/window.sum(), mode='same')
 
         freqData.append(avgyfn[:max_freq_index])
+        # print('avgyfn', np.shape(avgyfn[:max_freq_index]))
 
     # print(freqList)
+    # print('freqdata.shape',np.shape(freqData))
+
     freqDataNp = np.array(freqData).transpose()
+    # print('freqDataNp.shape', np.shape(freqDataNp))
+    # print('freqDataNp[0].shape', np.shape(freqDataNp[0]))
+    # print('freqDataNp\n', freqDataNp)
 
 
     ## map config
@@ -744,19 +753,25 @@ def main():
     DELAYLINE = 10*2**0.5
     SETUPLINE = 1*2.24**0.5
 
-    today = '0312h3'
-    todaySetting = {'BW':15e6, 'tm':607e-6, 'delayTmRatio':3, 'simTime':24e-3, 'distanceOffset':DELAYLINE+SETUPLINE,
-                    'freq':915e6, 'varible':'d', 'distance':1, 'velo':0}
+    # today = 'arduino/20200318'
+    today = '0318res'
+    todaySetting = {'BW':100e6, 'tm':136e-3, 'delayTmRatio':0, 'simTime':1200*2e-3, 'distanceOffset':SETUPLINE,
+                    'freq':5.8e9, 'varible':'d', 'distance':1, 'velo':0}
 
 
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv')]
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv') and ( i.startswith('2') or i.startswith('0') )]
     filenames.sort()
-
+    # print(filenames)
     # filenames = filenames[:12]
 
-    variableList = [float(i[:-5])/100 for i in filenames]
-    # variableList = [0,10,12,14, 16, 18, 20, 22]
+    # variableList = [float(i[:-5])/100 for i in filenames]
+    variableList = [float(i[1:-5]) for i in filenames]
+    # print(variableList)
+    # variableList = [0,10,12,14, 16, 18, 20]
+    # variableList = [0,7.31,8.61,11.40, 12.80, 14.22, 14.63]
+
     # variableList = [0,8,11,14,16]
+    # variableList = np.arange(0, 3, 0.25)
 
     # variableList = [i-2 for i in variableList]
     # variableList[0] = 0
@@ -764,15 +779,15 @@ def main():
 
 
     # plotSingleFile(today, '2001.csv')
-    # plotMultipleFile(today, filenames, removeBG=False, normalizeFreq=False, avgFreq=False)
+    # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
-    # plotTheoretical(variableList, setting=todaySetting, roundup=True)
+    # plotTheoretical(variableList, setting=todaySetting, roundup=False)
 
     # plotExpAndTheo(today, filenames, variableList, setting=todaySetting,
     #                roundup=True, removeBG=False, avgFreq=False)
 
     plotMap(today, filenames, variableList, setting=todaySetting,
-            roundup=True, removeBG=True, normalizeFreq=True, avgFreq=False)
+            roundup=True, removeBG=True, normalizeFreq=False, avgFreq=True)
 
     ## deprecated
     # plotHeatmap(today, filenames, variableList, setting=todaySetting,
