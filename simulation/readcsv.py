@@ -91,6 +91,7 @@ def plotSingleFile(today, filename):
 
     plt.title('FFT')
     plt.xlabel('freq (Hz)')
+    plt.yscale('log')
     plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
 
     plt.subplot(313)
@@ -754,20 +755,22 @@ def main():
     SETUPLINE = 1*2.24**0.5
 
     # today = 'arduino/20200318'
-    today = '0318res'
+    today = '0326single2'
     todaySetting = {'BW':100e6, 'tm':136e-3, 'delayTmRatio':0, 'simTime':1200*2e-3, 'distanceOffset':SETUPLINE,
-                    'freq':5.8e9, 'varible':'d', 'distance':1, 'velo':0}
+                    'freq':5.8e9, 'varible':'v', 'distance':1, 'velo':0}
 
 
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv') and ( i.startswith('2') or i.startswith('0') )]
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv')]
+    # filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('3.csv') and ( i.startswith('2') or i.startswith('0') )]
     filenames.sort()
     # print(filenames)
     # filenames = filenames[:12]
 
     # variableList = [float(i[:-5])/100 for i in filenames]
-    variableList = [float(i[1:-5]) for i in filenames]
+    # variableList = [float(i[1:-5]) for i in filenames]
     # print(variableList)
-    # variableList = [0,10,12,14, 16, 18, 20]
+    variableList = [0,12,14, 16, 18, 20,22]
+    # variableList = [0, 10,12,14, 16, 18, 20]
     # variableList = [0,7.31,8.61,11.40, 12.80, 14.22, 14.63]
 
     # variableList = [0,8,11,14,16]
@@ -778,7 +781,7 @@ def main():
     # variableList = np.arange(0, 5, 0.25)
 
 
-    # plotSingleFile(today, '2001.csv')
+    # plotSingleFile(today, '100202.csv')
     # plotMultipleFile(today, filenames, removeBG=True, normalizeFreq=False, avgFreq=False)
 
     # plotTheoretical(variableList, setting=todaySetting, roundup=False)

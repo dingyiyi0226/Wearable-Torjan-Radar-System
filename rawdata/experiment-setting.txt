@@ -232,7 +232,7 @@ Alias: 0310_5
 - Environment: Chamber
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
-- Slope: 100MHz / 68 ms
+- Slope: 100 MHz / 68 ms
 - Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
 - Target: People
 
@@ -241,4 +241,24 @@ Alias: 0310_5
 - Environment: Chamber
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
-- Slope: 100MHz / 68 ms
+- Slope: 100 MHz / 68 ms
+
+0326single:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Slope: 100 MHz / 68 ms
+- object @ 100 cm 
+- single 90 degree corner target
+
+0326single2:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Slope: 100 MHz / 68 ms
+- object @ 100 cm
+- single one side target
+
+
