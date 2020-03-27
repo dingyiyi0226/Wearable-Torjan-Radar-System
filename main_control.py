@@ -5,8 +5,9 @@ import sys
 import threading
 import time
 import warnings
-from datetime import datetime
+import argparse
 from collections import namedtuple
+from datetime import datetime
 
 import numpy as np
 import scipy.signal as sg
@@ -15,7 +16,7 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import ADF4158
-import A4988
+from A4988 import A4988
 from view import PPIView, SigView
 
 # GND  = 6      # T3
@@ -45,7 +46,8 @@ class FMCWRadar:
 
         ## SIGNAL GENERATOR MODULE
 
-        self._module = ADF4158.set5800Default(ADF4158.ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
+        self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
+        self._rotateMotor = A4988(ENA, STEP, DIR)
 
         ## DATA
 
@@ -66,6 +68,16 @@ class FMCWRadar:
         self.backgroundSig = {}
         self.realTimeSig = {'timeSig':[1], 'timeAxis':[1],'freqSig':[1],'freqAxis':[1], 'avgFreqSig':[1]}
 
+    ## PUBLIC FUNCTION
+
+    ## RADAR INFO
+
+    # TODO
+    def showConfig(self):
+        pass
+
+    ## RADAR ADJUSTMENT
+
     # TODO
     def setModuleProperty(self, tm):
         pass
@@ -78,20 +90,29 @@ class FMCWRadar:
     def alignDirection(self):
         pass
 
-    ## SIGNAL PROCESSING FUNCTIONS
+    ## SIGNAL ACCESSING FUCNTION
 
     def resetSignal(self):
         self._signal = []
 
     def readSignal(self, signal):
+        """ Read analog signal from Arduino (signal values in range(0, 1024)) """
         # print(signal)
-        self._signal.extend([i/1024 for i in signal])  # read from arduino (signal values in range(0, 1024))
+        self._signal.extend([i/1024 for i in signal])  
         # self._signal.extend(signal)  # read from file
 
     def endReadSignal(self, time):
-        """update some variable at the end of the signal and start signal processing"""
+        """ 
+        Update some variable at the end of the signal and start signal processing 
+        
+        Parameters
+        ----------
+        time : int
+            time record in unit (us)
+        """
 
         if not self._signal: return
+
         self._signalLength = len(self._signal)
         self._samplingTime = time * 1e-6
 
@@ -104,6 +125,10 @@ class FMCWRadar:
     def setBackgroundSig(self):
         self.backgroundSig = self.realTimeSig
 
+    ## PRIVATE FUNCTION
+
+    ## SIGNAL PROCESSING FUNCTIONS
+
     def _signalProcessing(self):
         self._fft()
         # if not self._findFreqPair():
@@ -112,7 +137,7 @@ class FMCWRadar:
         # self._calculateInfo()
 
     def _fft(self):
-        """perform fft on `_signal`"""
+        """ Perform FFT on self._signal """
 
         PEAK_HEIGHT = 5e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
         PEAK_PROMINENCE = 1e-4  ## prominence of peak frequency must exceed PEAK_PROMINENCE
@@ -124,7 +149,7 @@ class FMCWRadar:
         # print(self._peakFreqsIdx)
 
     def _avgFFTSig(self):
-        """ averaging the fft signal """
+        """ Averaging the FFT signal """
 
         AVGTICK = 3   ## the number of ticks on frequency axis
         minFreqdiff = 1/self._samplingTime
@@ -224,14 +249,8 @@ class FMCWRadar:
     def _freq2Velo(self, freq):
         return freq / self._freq * 3e8 / 2
 
-    # TODO
-    def _beatFreqLim(self):
-        pass
-
-def read(ser, radar, readEvent):
-    """
-    read signal at anytime in other thread
-    """
+def read(ser, radar: FMCWRadar, readEvent: threading.Event):
+    """ Read signal at anytime in other thread """
 
     while True:
         readEvent.wait()
@@ -262,6 +281,7 @@ def read(ser, radar, readEvent):
                     print('Value Error: ', s[2:])
                     continue
 
+            # BUG: Not execute by 1st condition 'if s.startswith('i')'
             elif s.startswith('init'):
                 pass
 
@@ -274,33 +294,30 @@ def read(ser, radar, readEvent):
 
         time.sleep(0.001)
 
-def readSimSignal(filename, samFreq, samTime, radar, readEvent):
+def readSimSignal(filename, samFreq, samTime, radar: FMCWRadar, readEvent: threading.Event):
     """
-    without connecting to Arduino, read signal from data
+    Load signal from data
 
     Parameters
     ----------
-    radar :
-
     filename :
 
     samFreq :
     
-    samTime :
-
-    
+    samTime : 
     """
     
     simSignal = []
     simSampFreq = 0
 
-    with open('rawdata/0225nolinefm05/'+filename+'.csv') as file:
+    # Load csvfile
+    with open(filename) as file:
         datas = csv.reader(file)
 
         for ind, data in enumerate(datas):
             if ind==0: continue
             elif ind==1:
-                simSampFreq = 1/float(data[3])
+                simSampFreq = 1 / float(data[-1])
             else:
                 simSignal.append(float(data[1]))
 
@@ -317,17 +334,16 @@ def readSimSignal(filename, samFreq, samTime, radar, readEvent):
         else:
             radar.resetSignal()
             j = random.randrange(len(simSignal))
-            # print(samSig)
             radar.readSignal(signal=samSig)
 
-            radar.endReadSignal(time=samTime*1e6 )
-            samSig = []
+            radar.endReadSignal(time=samTime*1e6)
+            samSig.clear()
             time.sleep(0.001)
 
         i+=1
 
 def port() -> str:
-    """find the name of the port"""
+    """ Find the name of the port """
 
     try:
         ## on mac
@@ -338,6 +354,7 @@ def port() -> str:
                     port = i
                     break;
             port = '/dev/' + port
+            
         ## on rpi
         if (sys.platform.startswith('linux')):
             ports = os.listdir('/dev/')
@@ -354,31 +371,37 @@ def port() -> str:
 
 
 def main():
-    # For file writing (Command: Save)
-    # Please refactor it QQ.
-    # now = datetime.today().strftime('%Y%m%d-%H%M%S')
+    ## Main function initialization arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--simulation', type=str, help='Read signal files and simulation')
+    args = parser.parse_args()
+
+    ## Arguments checking
+    if args.simulation is not None:
+        if not os.path.exists(args.simulation):
+            sys.exit('Argument --simulation ({}) wrong, exit'.format(args.simulation))
+
+    ## For file writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
 
-    ## Port Connecting
-    ser = serial.Serial(port(), baudrate=115200)
-    print('Successfully open port: ', ser)
-
-    ## initialize the model
+    ## Initialize radar 
     radar = FMCWRadar(freq=58e8 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
 
-    ## start reading in another thread but block by readEvent
+    ## Start reading in another thread but block by readEvent
     readEvent  = threading.Event()
 
-    ## practical version
-    readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
-
-    ## simulation version
-    # readThread = threading.Thread(target=readSimSignal, daemon=True,
-    #     kwargs={'filename':'3502', 'samFreq':1e4, 'samTime':2.4e-2, 'radar':radar, 'readEvent':readEvent})
-    
+    if args.simulation is None:
+        ## Port Connecting
+        ser = serial.Serial(port(), baudrate=115200)
+        print('Successfully open port: ', ser)
+        readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
+    else:
+        readThread = threading.Thread(target=readSimSignal, daemon=True,
+            kwargs={'filename': args.simulation, 'samFreq': 1e4, 'samTime': 2.4e-2, 'radar': radar, 'readEvent': readEvent})
+        
     readThread.start()
-    print('Reading Signal')
     readEvent.set()
+    print('Reading Signal')
 
     views = []
 
@@ -452,6 +475,7 @@ def main():
                 print("File is saved at: {}".format(os.path.join(path, distance + '.csv')))
 
             # TODO: ADF4158 module
+            # SetFreq with receive 1 argument: frequency
             elif s.startswith('setfreq'):
                 pass
 
@@ -460,6 +484,7 @@ def main():
                 pass
 
             # TODO: A4988 module
+            # SetDirection with receive 1 argument: angle
             elif s.startswith('setdirection'):
                 pass
 

@@ -5,26 +5,27 @@ from matplotlib.widgets import Button
 
 
 class SigView:
+    """ Signal Interface """
 
     def __init__(self, maxFreq, maxTime):
 
         self.fig, self.ax = plt.subplots(3,1, num='fig', figsize=(8,7))
 
-        # Axis[0]: Signal in Time Domain
+        ## Axis 0: Signal in Time Domain
         self.ax[0].set_xlim(0, maxTime)
-        # self.ax[0].set_ylim(-0.3, 0.3)
-        self.ax[0].set_ylim(0, 1)  # on arduino
+        # self.ax[0].set_ylim(-0.3, 0.3)    
+        self.ax[0].set_ylim(0, 1)           # on arduino
         self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
-        # Axis[1]: Signal in Frequency Domain
+        ## Axis 1: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
         # self.ax[1].set_ylim(0, 0.15)
-        self.ax[1].set_ylim(-0.002, 0.1)  # on arduino
+        self.ax[1].set_ylim(-0.002, 0.1)    # on arduino
 
-        # Axis[2]: Signal in Average Frequency Domain
+        ## Axis 2: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
         # self.ax[2].set_ylim(0, 0.15)
-        self.ax[2].set_ylim(-0.002, 0.1)  # on arduino
+        self.ax[2].set_ylim(-0.002, 0.1)    # on arduino
 
         self.fig.subplots_adjust(left=0.3, hspace=0.3)
 
@@ -32,18 +33,19 @@ class SigView:
         self.freqLine, = self.ax[1].plot([], [], 'r')
         self.avgFreqLine, = self.ax[2].plot([], [], 'r')
 
-        self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-        self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
-        self.button.on_clicked(self.onClick)
+        # self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+        # self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
+        # self.button.on_clicked(self.onClick)
 
     def figShow(self):
         plt.pause(1)
 
     def init(self):
-        # print('initRealTimeSig')
+        """ Return elements to matplotlib.Animation.FuncAnimation """
         return self.timeLine, self.freqLine, self.avgFreqLine,
 
     def update(self, frame, sigDict):
+        """ Return elements to matplotlib.Animation.FuncAnimation """
         # print('frame', frame)
 
         ## if you needs to set ax.x_lim dynamically, blit has to be False
@@ -58,8 +60,8 @@ class SigView:
 
         return self.timeLine, self.freqLine, self.avgFreqLine,
 
-    def onClick(self, event):
-        print('click')
+    # def onClick(self, event):
+    #     print('click')
 
 class PPIView:
     """ Radar Interface """
@@ -75,17 +77,19 @@ class PPIView:
 
         self.ppiData, = self.ax.plot([], [], '.r')
 
-        self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-        self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
-        self.button.on_clicked(self.onClick)
+        # self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
+        # self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
+        # self.button.on_clicked(self.onClick)
 
     def figShow(self):
         plt.pause(1)
 
     def init(self):
+        """ Return elements to matplotlib.Animation.FuncAnimation """
         return self.ppiData,
 
     def update(self, frame, direction, info):
+        """ Return elements to matplotlib.Animation.FuncAnimation """
         direction = direction/180*np.pi
         self.ppiData.set_data([direction for i in info], [i[0] for i in info])
         # self.ppiData.set_markersize(frame%5 + 12)
@@ -93,5 +97,5 @@ class PPIView:
 
         return self.ppiData,
 
-    def onClick(self, event):
-        print('click')
+    # def onClick(self, event):
+    #     print('click')
