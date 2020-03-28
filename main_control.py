@@ -16,63 +16,71 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import ADF4158
-from A4988 import DirectionController
+from A4988 import A4988
 from view import PPIView, SigView
-
-# GND  = 6      # T3
-W_CLK  = 12     # T4
-DATA   = 16     # T5
-LE     = 18     # T6
-TXDATA = 13     # T16
-MUXOUT = 15     # T8
-
-STEP = 3
-DIR = 5
-ENA = 7
 
 class Troy:
     
     def __init__(self):
 
-        self.rotateMotor = DirectionController(ENA, STEP, DIR)
-        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8 GHz, slope = 100MHz/1ms
-        self.lowFreqRadar = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6)
+        ## Pins
 
-    
-    def readSignal(self, signal, isHigh):
+        ADF_HIGH_PINS = {
+            # 'GND': 6,        # T3
+            'W_CLK': 12,       # T4
+            'DATA' : 16,       # T5
+            'LE'   : 18,       # T6
+            'TXDATA' : 13,     # T16
+            'MUXOUT' : 15,     # T8
+        }
+
+        ADF_LOW_PINS = {
+            # 'GND': 60,        # T3
+            'W_CLK': 120,       # T4
+            'DATA' : 160,       # T5
+            'LE'   : 180,       # T6
+            'TXDATA' : 130,     # T16
+            'MUXOUT' : 150,     # T8
+        }
+
+        DIR_PINS = {
+            'STEP': 3,
+            'DIR' : 5,
+            'ENA' : 7,
+        }
+
+        ## Modules
+
+        self.rotateMotor = A4988(DIR_PINS)
+        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=99.9969e6, tm=2.048e-3, pins=ADF_HIGH_PINS)
+        self.lowFreqRadar  = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
+
+        ## Data
+
+        self.currentDir = 90
+        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
+        self.highData = {}
+
+
+    def setSignal(self, signal, time, isHigh):
 
         if isHigh:
-            self.highFreqRadar.readSignal(signal)
-        else
-            self.lowFreqRadar.readSignal(signal)
-
-    def resetSignal(self, isHigh):
-
-        if isHigh:
-            self.highFreqRadar.resetSignal()
-        else
-            self.lowFreqRadar.resetSignal()
-
-    def endReadSignal(self, time, isHigh):
-
-        if isHigh:
-            self.highFreqRadar.endReadSignal()
-        else
-            self.lowFreqRadar.endReadSignal()
+            self.highData[self.currentDir] = self.highFreqRadar.setSignal(signal, time)
+        else:
+            self.lowData[self.currentDir] = self.lowFreqRadar.setSignal(signal, time)
 
 
     def setDirection(self, direction):
 
-        self.rotateMotor.setDirection(direction)
-        self.highFreqRadar.setDirection(direction)
-        self.lowFreqRadar.setDirection(direction)
-
+        deltaDir = direction - self.currentDir
+        self.rotateMotor.spin(abs(deltaDir), deltaDir>0)
+        self.currentDir = direction
 
 
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
 
-    def __init__(self, freq, BW, tm):
+    def __init__(self, freq, BW, tm, pins):
 
         ## SIGNAL IDENTITY
 
@@ -85,18 +93,13 @@ class FMCWRadar:
 
         ## SIGNAL GENERATOR MODULE
 
-        self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
-
-        ## DATA
-
-        self.info = {}          ## info of each direction: { angle: [(range, velo)] }
-        self.direction = 90     ## operating direction , at 90 degree by default
+        self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(pins['W_CLK'], pins['DATA'], pins['LE'], pins['TXDATA'], pins['MUXOUT']))
 
         ## SIGNAL PROCESSING
 
         self._signalLength = 0   ## length of received data. len(timeSig) = 2*len(freqSig)
-        self._resetFlag = False  ## reset signal flag
-        self._signal = []        ## received data (temp signal)
+        # self._resetFlag = False  ## reset signal flag
+        # self._signal = []        ## received data (temp signal)
 
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSig
@@ -120,28 +123,11 @@ class FMCWRadar:
     def setModuleProperty(self, tm):
         pass
 
-    # TODO
-    def setDirection(self, direction):
-        pass
-
-    # TODO
-    def alignDirection(self):
-        pass
-
     ## SIGNAL ACCESSING FUCNTION
 
-    def resetSignal(self):
-        self._signal = []
-
-    def readSignal(self, signal):
-        """ Read analog signal from Arduino (signal values in range(0, 1024)) """
-        # print(signal)
-        self._signal.extend([i/1024 for i in signal])  
-        # self._signal.extend(signal)  # read from file
-
-    def endReadSignal(self, time):
-        """ 
-        Update some variable at the end of the signal and start signal processing 
+    def setSignal(self, signal, time):
+        """
+        Update signal and some variable at the end of the signal and start signal processing
         
         Parameters
         ----------
@@ -149,16 +135,17 @@ class FMCWRadar:
             time record in unit (us)
         """
 
-        if not self._signal: return
+        if not signal: return
 
-        self._signalLength = len(self._signal)
+        self.realTimeSig['timeSig'] = signal.copy()
+        self._signalLength = len(self.realTimeSig['timeSig'])
         self._samplingTime = time * 1e-6
 
         self.realTimeSig['timeAxis'] = [i*self._samplingTime/self._signalLength for i in range(self._signalLength)]
         self.realTimeSig['freqAxis'] = [i/self._samplingTime for i in range(self._signalLength//2)]
-        self.realTimeSig['timeSig'] = self._signal[:]
 
-        self._signalProcessing()
+        return self._signalProcessing()
+
 
     def setBackgroundSig(self):
         self.backgroundSig = self.realTimeSig
@@ -169,17 +156,17 @@ class FMCWRadar:
 
     def _signalProcessing(self):
         self._fft()
-        # if not self._findFreqPair():
-        #     print('no peak frequency')
-        #     return
-        # self._calculateInfo()
+        if not self._findFreqPair():
+            print('no peak frequency')
+            return
+        return self._calculateInfo()
 
     def _fft(self):
-        """ Perform FFT on self._signal """
+        """ Perform FFT on realtime signal """
 
         PEAK_HEIGHT = 5e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
         PEAK_PROMINENCE = 1e-4  ## prominence of peak frequency must exceed PEAK_PROMINENCE
-        fftSignal_o = abs(np.fft.fft(self._signal))
+        fftSignal_o = abs(np.fft.fft(self.realTimeSig['timeSig']))
         self.realTimeSig['freqSig'] = [i*2/self._signalLength for i in fftSignal_o[:self._signalLength//2]]
         self._avgFFTSig()
 
@@ -278,8 +265,8 @@ class FMCWRadar:
 
         # print(infoList)
 
-        self.info[self.direction] = infoList
-        self._objectFreqs = []
+        self._objectFreqs.clear()
+        return infoList
 
     def _freq2Range(self, freq):
         return freq / self._slope * 3e8 / 2
@@ -287,8 +274,11 @@ class FMCWRadar:
     def _freq2Velo(self, freq):
         return freq / self._freq * 3e8 / 2
 
-def read(ser, radar: FMCWRadar, readEvent: threading.Event):
+def read(ser, troy: Troy, readEvent: threading.Event):
     """ Read signal at anytime in other thread """
+
+    signal = []
+    samplingTime = 0
 
     while True:
         readEvent.wait()
@@ -301,12 +291,13 @@ def read(ser, radar: FMCWRadar, readEvent: threading.Event):
             s = ser.readline().decode().strip()
     
             if s.startswith('i'):
-                radar.resetSignal()
+                signal.clear()
 
             elif s.startswith('d'):
                 # print('readSignal ',s[2:])
                 try:
-                    radar.readSignal(signal=[float(i) for i in s[2:].split()])
+                    signal.extend([float(i)/1024 for i in s[2:].split()])
+
                 except ValueError:
                     print('Value Error: ', s[2:])
                     continue
@@ -314,14 +305,12 @@ def read(ser, radar: FMCWRadar, readEvent: threading.Event):
             elif s.startswith('e'):
                 # print('endReadSignal ', s[2:])
                 try:
-                    radar.endReadSignal(time=float(s[2:]))
+                    samplingTime = float(s[2:])
+                    troy.setSignal(signal, samplingTime, isHigh=True)
+
                 except ValueError:
                     print('Value Error: ', s[2:])
                     continue
-
-            # BUG: Not execute by 1st condition 'if s.startswith('i')'
-            elif s.startswith('init'):
-                pass
 
             else:
                 print('\nRead: ', s)
@@ -332,7 +321,7 @@ def read(ser, radar: FMCWRadar, readEvent: threading.Event):
 
         time.sleep(0.001)
 
-def readSimSignal(filename, samFreq, samTime, radar: FMCWRadar, readEvent: threading.Event):
+def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.Event):
     """
     Load signal from data
 
@@ -342,7 +331,7 @@ def readSimSignal(filename, samFreq, samTime, radar: FMCWRadar, readEvent: threa
 
     samFreq :
     
-    samTime : 
+    samTime :
     """
     
     simSignal = []
@@ -370,12 +359,11 @@ def readSimSignal(filename, samFreq, samTime, radar: FMCWRadar, readEvent: threa
             samSig.append(simSignal[(int(j+i*simSampFreq/samFreq) % len(simSignal))])
 
         else:
-            radar.resetSignal()
-            j = random.randrange(len(simSignal))
-            radar.readSignal(signal=samSig)
 
-            radar.endReadSignal(time=samTime*1e6)
+            troy.setSignal(samSig, samTime*1e6, isHigh=True)
+
             samSig.clear()
+            j = random.randrange(len(simSignal))
             time.sleep(0.001)
 
         i+=1
@@ -388,7 +376,7 @@ def port() -> str:
         if sys.platform.startswith('darwin'):
             ports = os.listdir('/dev/')
             for i in ports:
-                if i[0:-2] == 'tty.usbserial-14':
+                if i.startswith('tty.usbserial-14') or i.startswith('tty.usbmodem14'):
                     port = i
                     break;
             port = '/dev/' + port
@@ -407,7 +395,6 @@ def port() -> str:
 
     return port
 
-
 def main():
     ## Main function initialization arguments
     parser = argparse.ArgumentParser()
@@ -422,8 +409,9 @@ def main():
     ## For file writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
 
-    ## Initialize radar 
-    radar = FMCWRadar(freq=58e8 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8GHz, slope = 100MHz/1ms
+    ## Initialize troy model
+
+    troy = Troy()
 
     ## Start reading in another thread but block by readEvent
     readEvent  = threading.Event()
@@ -432,10 +420,10 @@ def main():
         ## Port Connecting
         ser = serial.Serial(port(), baudrate=115200)
         print('Successfully open port: ', ser)
-        readThread = threading.Thread(target=read, args=[ser, radar, readEvent], daemon=True)
+        readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
     else:
         readThread = threading.Thread(target=readSimSignal, daemon=True,
-            kwargs={'filename': args.simulation, 'samFreq': 1e4, 'samTime': 2.4e-2, 'radar': radar, 'readEvent': readEvent})
+            kwargs={'filename': args.simulation, 'samFreq': 1e4, 'samTime': 2.4e-2, 'troy': troy, 'readEvent': readEvent})
         
     readThread.start()
     readEvent.set()
@@ -471,7 +459,7 @@ def main():
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=100, blit=True,
-                    fargs=(radar.realTimeSig,))
+                    fargs=(troy.highFreqRadar.realTimeSig,))
                 view.figShow()
 
             elif s.startswith('ppi'):
@@ -480,7 +468,7 @@ def main():
 
                 animation = FuncAnimation(view.fig, view.update,
                     frames=100, init_func=view.init, interval=100, blit=True,
-                    fargs=(radar.direction, radar.info[radar.direction]))
+                    fargs=(troy.currentDir, troy.highData[troy.currentDir]))
 
                 view.figShow()
 
@@ -505,9 +493,9 @@ def main():
                 with open(os.path.join(path, distance + '.csv'), 'w') as file:
                     writer = csv.writer(file)
                     writer.writerow(['X', 'Sig', '', 'Increment'])
-                    writer.writerow(['', '', '', str(radar.realTimeSig['timeAxis'][1])])
+                    writer.writerow(['', '', '', str(troy.highFreqRadar.realTimeSig['timeAxis'][1])])
                     
-                    for ind, i in enumerate(radar.realTimeSig['timeSig']):
+                    for ind, i in enumerate(troy.highFreqRadar.realTimeSig['timeSig']):
                         writer.writerow([ind, i])
 
                 print("File is saved at: {}".format(os.path.join(path, distance + '.csv')))
@@ -521,10 +509,16 @@ def main():
             elif s.startswith('setModulation'):
                 pass
 
-            # TODO: A4988 module
-            # SetDirection with receive 1 argument: angle
             elif s.startswith('setdirection'):
-                pass
+
+                direction = input('Direction: ').strip()
+
+                try:
+                    direction = float(direction)
+                    troy.setDirection(direction)
+
+                except ValueError:
+                    print('invalid direction')
 
             # TODO: A4988 module and FMCWRadar
             elif s.startswith('resetdirection'):
@@ -535,7 +529,8 @@ def main():
                 ser.reset_input_buffer()
 
             elif s.startswith('info'):
-                print(radar.info)
+                print('high freq info:', troy.highData)
+                print('low freq info:', troy.lowData)
 
             elif s.startswith('q'):
                 break
