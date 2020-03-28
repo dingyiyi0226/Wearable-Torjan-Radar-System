@@ -363,7 +363,7 @@ def set5800Default(module):
 
     return module
 
-def set915Default():
+def set915Default(module):
     module.initBitPatterns(module)
 
     module.setRamp(True)
@@ -374,9 +374,3 @@ def set915Default():
     module.setMuxout(Muxout.THREE_STATE)
     
     return module
-
-def main():
-    module = set5800Default()
-    
-if __name__ == "__main__":
-    main()
