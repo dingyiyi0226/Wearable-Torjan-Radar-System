@@ -30,6 +30,9 @@ STEP = 3
 DIR = 5
 ENA = 7
 
+class Troy:
+    pass
+
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
 
@@ -47,7 +50,6 @@ class FMCWRadar:
         ## SIGNAL GENERATOR MODULE
 
         self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
-        self._rotateMotor = A4988(ENA, STEP, DIR)
 
         ## DATA
 
@@ -167,7 +169,7 @@ class FMCWRadar:
         Return
         ------
         status : bool
-            false if no peak frequency is found.
+            False if no peak frequency is found.
         """
 
         PEAK_DIFF = 1e-4  ## we assume two peak belong to same object if and only if the amplitude
