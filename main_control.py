@@ -38,6 +38,29 @@ class Troy:
         self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8 GHz, slope = 100MHz/1ms
         self.lowFreqRadar = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6)
 
+    
+    def readSignal(self, signal, isHigh):
+
+        if isHigh:
+            self.highFreqRadar.readSignal(signal)
+        else
+            self.lowFreqRadar.readSignal(signal)
+
+    def resetSignal(self, isHigh):
+
+        if isHigh:
+            self.highFreqRadar.resetSignal()
+        else
+            self.lowFreqRadar.resetSignal()
+
+    def endReadSignal(self, time, isHigh):
+
+        if isHigh:
+            self.highFreqRadar.endReadSignal()
+        else
+            self.lowFreqRadar.endReadSignal()
+
+
     def setDirection(self, direction):
 
         self.rotateMotor.setDirection(direction)
