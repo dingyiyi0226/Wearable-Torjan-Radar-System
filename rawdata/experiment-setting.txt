@@ -1,95 +1,103 @@
 0220:
 
-- in 527
-- moving target
-- target: iron plate*1
-- from 0 to 300 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in 527
+- Slope: 100MHz / 1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 300 cm
 
 0221:
 
-- in corridor
-- moving target
-- target: iron plate*1
-- from 0 to 500 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in corridor
+- Slope: 100MHz / 1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    moving target (iron plate)
+    - Distance from 0 to 500 cm
 
 0222:
 
-- in corridor
+- Environment: in corridor
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    iron plate*4
+    - Distance: from 25 to 300 cm
 - moving radar system
-- target: iron plate*4
-- from 25 to 300 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0223:
 
-- in corridor
+- Environment: in corridor
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    aluminum foil
+    - Distance: from 25 to 600 cm
 - moving radar system
-- target: aluminum foil
-- from 25 to 600 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0225:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0225fm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
 
 0225nolinefm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
-- without 10m delayline
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz / 2ms (actual 99.9969MHz/2.048ms)
+- DelayLine: 0 (m)
 
 0225hornfm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
-- without 10m delayline
-- using horn antenna
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz / 2ms (actual 99.9969MHz/2.048ms)
+- DelayLine: 0 (m)
+- Horn: True
 
 0305:
 
-- Frequency: 5.8G
-- variable: target(old) motor speed
+- Environment:
+- Frequency: 5.8 GHz
+- Variable: target(old) motor speed
 
 0307:
 
-- Frequency: 5.8G
-- variable: target(new) motor speed
+- Environment:
+- Frequency: 5.8 GHz
+- Variable: target(new) motor speed
 
 0308_1:
 
 - Environment: Corridor
 - Frequency: 915 MHz
-- variable: distance
-- slope: 15 MHz / 153.6µs
-- patch
+- Slope: 15 MHz / 153.6µs
+- Horn: False
+- Target:
+    Small Speed Generator
+    - Distance : Var
 
 0308_2:
 
 - Environment: Corridor
 - Frequency: 915 MHz
-- variable: distance
-- slope: 15 MHz / 153.6µs
-- horn
+- Slope: 15 MHz / 153.6µs
+- Horn: True
+- Target:
+    Small Speed Generator
+    - Distance : Var
 
 0308_3:
 Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
@@ -209,7 +217,7 @@ Alias: 0310_5
 - Ramp Mode: Continuous Triangular
 - Ramp:
     - Extend tm
-- DelayLine: 0 motor
+- DelayLine: 0 (m)
 - Data Source: Arduino
 - Target:
     Horizontal plane
@@ -233,8 +241,9 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
-- Target: People
+- Target: 
+    People
+    - Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
 
 0318fmcw:
 
