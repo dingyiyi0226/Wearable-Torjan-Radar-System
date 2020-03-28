@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import ADF4158
-from A4988 import A4988
+from A4988 import DirectionController
 from view import PPIView, SigView
 
 # GND  = 6      # T3
@@ -31,7 +31,20 @@ DIR = 5
 ENA = 7
 
 class Troy:
-    pass
+    
+    def __init__(self):
+
+        self.rotateMotor = DirectionController(ENA, STEP, DIR)
+        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=99.9969e6, tm=2.048e-3)  ## operating at 5.8 GHz, slope = 100MHz/1ms
+        self.lowFreqRadar = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6)
+
+    def setDirection(self, direction):
+
+        self.rotateMotor.setDirection(direction)
+        self.highFreqRadar.setDirection(direction)
+        self.lowFreqRadar.setDirection(direction)
+
+
 
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
@@ -375,7 +388,7 @@ def port() -> str:
 def main():
     ## Main function initialization arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--simulation', type=str, help='Read signal files and simulation')
+    parser.add_argument('-s', '--simulation', type=str, help='Read signal files and simulation')
     args = parser.parse_args()
 
     ## Arguments checking

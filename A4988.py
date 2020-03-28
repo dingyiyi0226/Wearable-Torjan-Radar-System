@@ -66,6 +66,20 @@ class A4988:
             self.spin(deg, True)
             time.sleep(0.5)
 
+class DirectionController:
+
+    def __init__(ENA, STEP, DIR):
+
+        self.module = A4988(ENA, STEP, DIR)
+        self.currentDir = 90
+
+    def setDirection(self, direction):
+
+        deltaDir = direction - self.currentDir
+        self.module.spin(abs(deltaDir), deltaDir > 0)
+        self.currentDir = direction
+
+
 def main():
 
     try:
