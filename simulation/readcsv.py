@@ -227,7 +227,7 @@ def _plotTheoretical(varibleList, setting, roundup, doPlot=True):
         if setting['varible']=='d':
             plt.xlabel('Distance (m)')
         elif setting['varible']=='v':
-            plt.xlabel('Velocity (m/s)')
+            plt.xlabel('Angular Velocity (rps)')
 
         plt.ylabel('Frequency (Hz)')
         plt.xticks(varibleList)
@@ -348,7 +348,7 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
     
     ## Const
 
-    maxFreqIndex = maxFreq // minFreqDiff
+    maxFreqIndex = int(maxFreq / minFreqDiff)
 
     ## Graph
 
@@ -376,7 +376,7 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
     fig.subplots_adjust(hspace=0.8)
     plt.show()
 
-def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceList, setting, roundup, removeBG, avgFreq):
+def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting, roundup, removeBG, avgFreq):
     """ Plot experimental peak value and theoretical value for distance resolution verification """
 
     freqList = []
@@ -395,7 +395,7 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceL
         peakIndex = np.argmax(freqDataNp[:, pltind])
         freqList.append(f_axis[peakIndex])
 
-    theoFreqList, _ = _plotTheoretical(distanceList, setting, roundup, doPlot=False)
+    theoFreqList, _ = _plotTheoretical(variableList, setting, roundup, doPlot=False)
 
     plt.figure('Figure')
 
@@ -406,9 +406,14 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceL
         title+=' avgFreq'
     plt.suptitle(title)
 
-    plt.plot(distanceList[1:], freqList[1:], '.-', label='exp')
-    plt.plot(distanceList[1:], theoFreqList[1:], '.-', label='theo')
-    plt.xlabel('Distance (m)')
+    plt.plot(variableList[1:], freqList[1:], '.-', label='exp')
+    plt.plot(variableList[1:], theoFreqList[1:], '.-', label='theo')
+
+    if setting['varible'] == 'd':
+        plt.set_xlabel('Distance (m)')
+    elif setting['varible'] == 'v':
+        plt.set_xlabel('Angular Velocity (rps)')
+
     plt.ylabel('Frequency (Hz)')
     plt.legend()
     plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
@@ -416,12 +421,12 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceL
     plt.grid(True)
     plt.show()
 
-def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceList, setting, roundup, removeBG, normalizeFreq, avgFreq):
+def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting, roundup, removeBG, normalizeFreq, avgFreq):
     """ Plot FFT signal at each distance in heatmap (using NonUniformImage) """
 
     ## Const
 
-    maxFreqIndex = maxFreq // minFreqDiff
+    maxFreqIndex = int(maxFreq / minFreqDiff)
 
     ## map config
 
@@ -446,12 +451,12 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceList, se
     ## Figure 1: Experiment
 
     im = NonUniformImage(ax[0], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(distanceList, np.arange(maxFreqIndex), freqDataNp)
+    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp)
     ax[0].images.append(im)
 
     ax[0].set_title('Experiment')
-    # ax[0].set_xticks(distanceList[::1])
-    ax[0].set_xlim(0, distanceList[-1])
+    # ax[0].set_xticks(variableList[::1])
+    ax[0].set_xlim(0, variableList[-1])
 
     ax[0].set_ylabel('Frequency (Hz)')
     ax[0].set_yticks(np.linspace(0, maxFreqIndex, YTICKCNT))
@@ -463,18 +468,18 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceList, se
     if setting['varible'] == 'd':
         ax[0].set_xlabel('Distance (m)')
     elif setting['varible'] == 'v':
-        ax[0].set_xlabel('Velocity (m/s)')
+        ax[0].set_xlabel('Angular Velocity (rps)')
 
     ## Figure 2: Experiment with Theoritical Line
 
     im = NonUniformImage(ax[1], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(distanceList, np.arange(maxFreqIndex), freqDataNp)
+    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp)
     ax[1].images.append(im)
 
     ax[1].set_title('Theoretical')
 
-    # ax[1].set_xticks(distanceList[::1])
-    ax[1].set_xlim(0, distanceList[-1])
+    # ax[1].set_xticks(variableList[::1])
+    ax[1].set_xlim(0, variableList[-1])
 
     ax[1].set_yticks(np.linspace(0,maxFreqIndex,YTICKCNT))
     ax[1].set_yticklabels(np.linspace(0, maxFreq, YTICKCNT, dtype=int))
@@ -483,11 +488,11 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, distanceList, se
     if setting['varible'] == 'd':
         ax[1].set_xlabel('Distance (m)')
     elif setting['varible'] == 'v':
-        ax[1].set_xlabel('Velocity (m/s)')
+        ax[1].set_xlabel('Angular Velocity (rps)')
 
-    theoF1List, theoF2List = _plotTheoretical(distanceList, setting, roundup, doPlot=False)
-    ax[1].plot(distanceList, [i // minFreqDiff for i in theoF1List], '.:m')
-    ax[1].plot(distanceList, [i // minFreqDiff for i in theoF2List], '.:r')
+    theoF1List, theoF2List = _plotTheoretical(variableList, setting, roundup, doPlot=False)
+    ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m')
+    ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r')
 
     ## Figure legned
 
@@ -511,25 +516,25 @@ def main():
     ## Tide up setting
 
     todaySetting = {
-        'BW': 100e6, 
-        'tm': 2000e-6, 
-        'delayTmRatio': 0, 
+        'BW': 100e6,
+        'tm': 4000e-6,
+        'delayTmRatio': 0,
         'distanceOffset': SETUPLINE,
-        'freq': 5.8e9, 
-        'varible': 'd', 
-        'distance': 1, 
+        'freq': 5.8e9,
+        'varible': 'd',
+        'distance': 1,
         'velo': 0,
     }
 
     ## Load files
 
-    today = '0225hornfm05'
+    today = '0225nolinefm05'
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
     filenames.sort()
     variableList = [float(i[:-5]) / 100 for i in filenames]
 
     freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff = loadBatchCSV(
-        filenames, today, todaySetting['tm'], args.removeBG, args.normalizeFreq, args.averageFreq)    
+        filenames, today, todaySetting['tm'], args.removeBG, args.normalizeFreq, args.averageFreq)
 
     ## Modify setting
 
@@ -552,16 +557,16 @@ def main():
     ## Plot Files
 
     # plotSingleFile(today, '100202.csv')
-    # plotMultipleFile(freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff, today, filenames, 
+    # plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames,
     #     removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
-    plotExpAndTheo(freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff, today, filenames, variableList, setting=todaySetting,
-        roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
+    # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
+    #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
 
-    # plotMap(freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff, today, variableList, setting=todaySetting,
-    #     roundup=True, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
+        roundup=True, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
-    return 
+    return
 
 if __name__ == '__main__':
     main()
