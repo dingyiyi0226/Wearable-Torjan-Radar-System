@@ -18,6 +18,9 @@ def roundto(num, tick):
     else:
         return math.ceil(num/tick) * tick
 
+def angV2V(rpsList, radius):
+    return [i*2*np.pi*radius*0.01 for i in rpsList]
+
 def parseCSV(filename, today):
     """ Return signal list and simulation data frequency """
 
@@ -119,7 +122,7 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
     if avgFreq:
         AVGTICK = 3
         fm = 1 / tm
-        avgLength = int(fm/minFreqDiff*AVGTICK)
+        avgLength = max(1, int(fm/minFreqDiff*AVGTICK))
         window = np.ones(avgLength)
         for i in range(1, freqDataNp.shape[1]):
             freqDataNp[:, i] = sg.oaconvolve(freqDataNp[:, i], window/window.sum(), mode='same')
@@ -227,7 +230,7 @@ def _plotTheoretical(varibleList, setting, roundup, doPlot=True):
         if setting['varible']=='d':
             plt.xlabel('Distance (m)')
         elif setting['varible']=='v':
-            plt.xlabel('Angular Velocity (rps)')
+            plt.xlabel('Velocity (m/s)')
 
         plt.ylabel('Frequency (Hz)')
         plt.xticks(varibleList)
@@ -315,7 +318,7 @@ def plotSingleFile(today, filename):
 
     AVGTICK = 3
     assumeFm = 250
-    avgLength = int(assumeFm/minFreqDiff*AVGTICK)
+    avgLength = max(1, int(assumeFm/minFreqDiff*AVGTICK))
     window = np.ones(avgLength)
 
 
@@ -412,7 +415,7 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, variableL
     if setting['varible'] == 'd':
         plt.set_xlabel('Distance (m)')
     elif setting['varible'] == 'v':
-        plt.set_xlabel('Angular Velocity (rps)')
+        plt.set_xlabel('Velocity (m/s)')
 
     plt.ylabel('Frequency (Hz)')
     plt.legend()
@@ -460,7 +463,7 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
 
     ax[0].set_ylabel('Frequency (Hz)')
     ax[0].set_yticks(np.linspace(0, maxFreqIndex, YTICKCNT))
-    # ax[0].set_yticklabels(np.linspace(0, max_freq, YTICKCNT, dtype=int))
+    # ax[0].set_yticklabels(np.linspace(0, maxFreq, YTICKCNT, dtype=int))
     ax[0].set_ylim(0, maxFreqIndex)
 
     ax[0].tick_params(right=True, left=False, labelleft=False)
@@ -487,14 +490,29 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
 
     if setting['varible'] == 'd':
         ax[1].set_xlabel('Distance (m)')
+
+        theoF1List, theoF2List = _plotTheoretical(variableList, setting, roundup, doPlot=False)
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r')
+
     elif setting['varible'] == 'v':
         ax[1].set_xlabel('Angular Velocity (rps)')
 
-    theoF1List, theoF2List = _plotTheoretical(variableList, setting, roundup, doPlot=False)
-    ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m')
-    ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r')
+        veloList = angV2V(variableList, radius=7)
 
-    ## Figure legned
+        theoF1List, theoF2List = _plotTheoretical(veloList, setting, roundup, doPlot=False)
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:r', alpha=1, label='r=7')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r', alpha=0.5)
+
+        veloList = angV2V(variableList, radius=14)
+
+        theoF1List, theoF2List = _plotTheoretical(veloList, setting, roundup, doPlot=False)
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m', alpha=1, label='r=14')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:m', alpha=0.5)
+
+        ax[1].legend()
+
+    ## Figure legend
 
     plt.colorbar(im, ax=ax.ravel().tolist())
     plt.show()
@@ -516,22 +534,28 @@ def main():
     ## Tide up setting
 
     todaySetting = {
-        'BW': 100e6,
-        'tm': 4000e-6,
+        'BW': 99.9969e6,
+        'tm': 8192e-6,
         'delayTmRatio': 0,
         'distanceOffset': SETUPLINE,
         'freq': 5.8e9,
-        'varible': 'd',
+        'varible': 'v',
         'distance': 1,
         'velo': 0,
     }
 
     ## Load files
 
-    today = '0225nolinefm05'
+    today = '0331fmcw'
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
     filenames.sort()
-    variableList = [float(i[:-5]) / 100 for i in filenames]
+    # print(filenames)
+
+    # variableList = [float(i[:-5]) / 100 for i in filenames]
+    variableList = [int(i[-7:-5]) for i in filenames]
+    # variableList = range(6)
+
+    # print(variableList)
 
     freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff = loadBatchCSV(
         filenames, today, todaySetting['tm'], args.removeBG, args.normalizeFreq, args.averageFreq)
@@ -543,15 +567,15 @@ def main():
     ## Show Config
 
     print()
-    print('=====================Config======================')
+    print('=====================Config=====================')
 
     for key, value in todaySetting.items():
-        print("{:16} {:>32}".format(key, value))
+        print("{:16}{:>32}".format(key, value))
 
     for key, value in vars(args).items():
-        print("{:16} {:>32}".format(key, value))
+        print("{:16}{:>32}".format(key, value))
 
-    print('=====================Config======================')
+    print('=====================Config=====================')
     print()
 
     ## Plot Files
