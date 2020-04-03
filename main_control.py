@@ -278,6 +278,7 @@ def read(ser, troy: Troy, readEvent: threading.Event):
     """ Read signal at anytime in other thread """
 
     signal = []
+    isValid = True
     samplingTime = 0
 
     while True:
@@ -291,6 +292,7 @@ def read(ser, troy: Troy, readEvent: threading.Event):
             s = ser.readline().decode().strip()
     
             if s.startswith('i'):
+                isValid = True
                 signal.clear()
 
             elif s.startswith('d'):
@@ -300,24 +302,25 @@ def read(ser, troy: Troy, readEvent: threading.Event):
 
                 except ValueError:
                     print('Value Error: ', s[2:])
-                    continue
+                    isValid = False
 
             elif s.startswith('e'):
                 # print('endReadSignal ', s[2:])
                 try:
                     samplingTime = float(s[2:])
-                    troy.setSignal(signal, samplingTime, isHigh=True)
-
+                    
                 except ValueError:
                     print('Value Error: ', s[2:])
-                    continue
+                    isValid = False
+
+                if isValid:
+                    troy.setSignal(signal, samplingTime, isHigh=True)
 
             else:
-                print('\nRead: ', s)
+                print('\nRead:', s)
 
         except UnicodeDecodeError:
             print('UnicodeDecodeError')
-            continue
 
         time.sleep(0.001)
 
@@ -418,7 +421,7 @@ def main():
 
     if args.simulation is None:
         ## Port Connecting
-        ser = serial.Serial(port(), baudrate=115200)
+        ser = serial.Serial(port(), baudrate=115200, timeout=3)
         print('Successfully open port: ', ser)
         readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
     else:
