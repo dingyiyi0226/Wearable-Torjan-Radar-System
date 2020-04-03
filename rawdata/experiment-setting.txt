@@ -270,13 +270,12 @@ Alias: 0310_5
 - object @ 100 cm
 - single one side target
 
-0331singel:
+0331single:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
-- Ramp Mode: Continuous Triangular
-- Ramp: 100 MHz / 4 ms
-- Objects 
+- Ramp Mode: Single Frequency
+- Objects
     - Speed Generator @ 1(m)
     - With taper corner
 
@@ -286,19 +285,31 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Ramp: 100 MHz / 4 ms
-- Objects 
+- Objects
     - Speed Generator @ 1(m)
     - With taper corner
 
-0331resnomgc:
+0331fmcwnomgc:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Ramp: 100 MHz / 4 ms
-- Objects 
+- Objects
+    - Speed Generator @ 1(m)
+    - With taper corner
+- Without MGC
+
+0331res:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- Objects
     - 100 cm
     - objects
 - DelayLine: 0 (m)
 - Target:
     2 Vertical planes
+- Without MGC
