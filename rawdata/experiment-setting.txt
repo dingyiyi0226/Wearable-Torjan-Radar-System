@@ -187,6 +187,7 @@ Alias: 0310_5
     Vertical plane
 
 0312h:
+alias: 0312horizontal
 
 - Environment: Chamber
 - Frequency: 886 MHz
@@ -199,6 +200,7 @@ Alias: 0310_5
     Horizontal plane
 
 0312h3:
+alias: 0312horizontal_tm3
 
 - Environment: Chamber
 - Frequency: 886 MHz
@@ -230,10 +232,11 @@ Alias: 0310_5
 - Slope: 100MHz / 68 ms
 
 0318shiftval:
+alias: 0318shiftvalidation
 
 - Frequency: 5.8 GHz
 - Ramp Mode: Single Frequency
-
+- Slope   0 Hz / 68 ms
 
 0318res:
 
@@ -242,8 +245,7 @@ Alias: 0310_5
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
 - Target: 
-    People
-    - Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
+    - 2 people (ex: 341.csv means that objects at 300 and 400 cm)
 
 0318fmcw:
 
@@ -258,8 +260,9 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- object @ 100 cm 
-- single 90 degree corner target
+- Object:
+    - object @ 100 cm 
+    - single 90 degree corner target
 
 0326single2:
 
@@ -267,49 +270,56 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- object @ 100 cm
-- single one side target
+- Object:
+    - object @ 100 cm
+    - single one side target
 
 0331single:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
 - Ramp Mode: Single Frequency
-- Objects
-    - Speed Generator @ 1(m)
+- Target:
+    Speed Generator
     - With taper corner
+    - Distance: 1 m
+    - Velocity: Var
+- Notes
+    - The straw is move to outer side
 
 0331fmcw:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
+- With MGC (?
 - Ramp Mode: Continuous Triangular
 - Ramp: 100 MHz / 4 ms
-- Objects
-    - Speed Generator @ 1(m)
+- Target:
+    Speed Generator
     - With taper corner
+    - Distance: 1 m
+    - Velocity: Var
 
 0331fmcwnomgc:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
+- Without MGC
 - Ramp Mode: Continuous Triangular
 - Ramp: 100 MHz / 4 ms
-- Objects
-    - Speed Generator @ 1(m)
+- Target:
+    Speed Generator
     - With taper corner
-- Without MGC
-
+    - Distance: 1 m
+    - Velocity: Var
+    
 0331res:
 
 - Environment: Chamber
 - Frequency: 5.8 GHz
+- Without MGC
 - Ramp Mode: Continuous Triangular
 - Ramp: 100 MHz / 4 ms
-- Objects
-    - 100 cm
-    - objects
 - DelayLine: 0 (m)
 - Target:
-    2 Vertical planes
-- Without MGC
+    2 Vertical planes (ex: 341.csv means small plate at 300 cm and large plate at 400 cm)
