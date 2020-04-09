@@ -323,3 +323,55 @@ alias: 0318shiftvalidation
 - DelayLine: 0 (m)
 - Target:
     2 Vertical planes (ex: 341.csv means small plate at 300 cm and large plate at 400 cm)
+
+0407:
+
+- Environment: Chamber
+- Frequency: 915MHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 15 MHz / 4 ms
+- DelayLine: 0 (m)
+- Target:
+    1 Vertical Plane
+
+new0407:
+
+- Environment: Chamber
+- Frequency: 915MHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 15 MHz / 4 ms
+- DelayLine: 
+    Var (_x_y for some long and short lines) 
+- Target:
+    1 Vertical Plane
+
+0409:
+
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Horn: True
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: Var (1, 2, 3)
+    - Velocity: Var (12, 15, 18, 21)
+- Notes:
+    Failure at distance=3
+
+0409n:
+
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Horn: True
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 1 (m)
+    - Velocity: Var
+
