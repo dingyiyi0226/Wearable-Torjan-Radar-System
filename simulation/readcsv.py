@@ -28,12 +28,20 @@ def parseCSV(filename, today):
 
     with open('./rawdata/{}/{}'.format(today, filename)) as file:
         datas = csv.reader(file)
-        simFreq = 0
-        for ind, data in enumerate(datas):
-            if ind==0: continue
-            elif ind==1:
-                simFreq = 1/float(data[-1])
-            else:
+        row = next(datas)
+
+        if len(row[0].split()) > 1:      # new format
+            
+            simFreq = 16e3
+            channel = 1 # 1~8
+            for data in datas:
+                if len(data[channel]):   # omit the last line
+                    signal.append(float(data[channel])/1e6)
+
+        else:
+            row = next(datas)
+            simFreq = 1/float(row[-1])
+            for data in datas:
                 signal.append(float(data[1]))
 
     return signal, simFreq
@@ -302,11 +310,10 @@ def plotSingleFile(today, filename):
         plt.annotate(s=int(peaks[ind]*minFreqDiff), xy=(peaks[ind]*minFreqDiff,yfn[i]))
         print('peaks at: {} Hz, amplitude = {}'.format(int(peaks[ind]*minFreqDiff), yfn[i]))
         peakList.append( (int(peaks[ind]*minFreqDiff), yfn[i]) )
-    print()
 
     plt.title('FFT')
     plt.xlabel('freq (Hz)')
-    plt.yscale('log')
+    # plt.yscale('log')
     plt.ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
 
     ## Figure 3: Average X[f]
@@ -362,7 +369,7 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
     f_axis = [i*minFreqDiff for i in range(N)]
 
     for pltind, filename in enumerate(filenames):
-        ax[pltind//3, pltind%3].plot(f_axis[:maxFreqIndex], freqDataNp[:, pltind], color='red')
+        ax[pltind//3, pltind%3].plot(f_axis[:maxFreqIndex], freqDataNp[:maxFreqIndex, pltind], color='red')
         ax[pltind//3, pltind%3].set_title(filename[:-4]+' cm')
         ax[pltind//3, pltind%3].ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
@@ -454,7 +461,7 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
     ## Figure 1: Experiment
 
     im = NonUniformImage(ax[0], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp)
+    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex])
     ax[0].images.append(im)
 
     ax[0].set_title('Experiment')
@@ -476,7 +483,7 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
     ## Figure 2: Experiment with Theoritical Line
 
     im = NonUniformImage(ax[1], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp)
+    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex])
     ax[1].images.append(im)
 
     ax[1].set_title('Theoretical')
@@ -540,14 +547,14 @@ def main():
         'distanceOffset': SETUPLINE,
         'freq': 5.8e9,
         'varible': 'v',
-        'distance': 1,
+        'distance': 2,
         'velo': 0,
     }
 
     ## Load files
 
-    today = '0331fmcw'
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
+    today = '0505-fmcw'
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('2.csv')]
     filenames.sort()
     # print(filenames)
 
@@ -578,14 +585,23 @@ def main():
     print('=====================Config=====================')
     print()
 
-    ## Plot Files
+    ## freqDataNp adjustment by HAND
 
-    # plotSingleFile(today, '100202.csv')
+    print(freqDataNp.shape)
+    freqDataNp = freqDataNp.clip(0, 0.001)
+
+
+    ## Plot Files
+    # maxFreq = 1000
+
+    # plotSingleFile(today, '200142.csv')
     # plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames,
     #     removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
     # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
     #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
+
+
 
     plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
         roundup=True, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
