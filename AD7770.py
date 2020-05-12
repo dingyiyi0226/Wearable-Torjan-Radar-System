@@ -31,11 +31,46 @@ def readFile(fname, ratio=1e6, removeDC=True):
 
     return df
 
+def loadBG(fnames, fs, t_window, t_stride, *args, **kwargs):
+    """
+    Parameters
+    ----------
+    fnames : list
+
+    fs : float
+    """
+
+    MODULE_TIME   = kwargs['tm']
+    BANDWIDTH     = kwargs['bw']
+    CENTER_FREQ   = kwargs['fc']
+    MODULE_POINTS = int(MODULE_TIME * fs)
+
+    spectrumAVG   = np.zeros(int(data.size / 2))
+    dopplerAVG    = np.zeros((data.size // MODULE_POINTS, MODULE_POINTS), dtype=np.float64)
+
+    for fname in fnames:
+        data = readFile(fname)[0]
+        data = data[:floor(data.size, MODULE_POINTS)]
+
+        for start in range(0, data.size - WINDOW_POINT, STRIDE_POINT):
+            spectrum = fftshift(np.abs(fft(data[start:start + WINDOW_POINT])))
+            spectrum = spectrum[int(data.size / 2):]
+            doppler, _, _ = dopplerMap(data.reshape(-1, MODULE_POINTS), BANDWIDTH, CENTER_FREQ, MODULE_TIME)
+
+            spectrumAVG += spectrum
+            dopplerAVG  += doppler
+
+    spectrumAVG /= (len(fnames) * len(range(0, data.size - WINDOW_POINT, STRIDE_POINT)))
+    dopplerAVG /= (len(fnames) * len(range(0, data.size - WINDOW_POINT, STRIDE_POINT)))
+
+    return dopplerMap, spectrumAVG
+
 def dopplerMap(m, bw, fc, tm):
     distance    = c / (2 * bw) * np.arange(-m.shape[1] / 2, m.shape[1] / 2)
     velocity    = c / (2 * fc) / (m.shape[0] * tm) * np.arange(-m.shape[0] / 2, m.shape[0] / 2)
     dopplerMap  = np.abs(fftshift(fft2(m), axes=None)) / m.size
-    
+    dopplerMap  = np.clip(dopplerMap, a_min=None, a_max=0.1 * np.max(dopplerMap)) 
+
     return dopplerMap, distance, velocity
 
 def singleFreqInference(signal, centerFreq, sampleFreq, threshold, segments, stride):
@@ -71,9 +106,10 @@ def visualize(fname, method, fs, t_window, t_stride, drop_last=True, *args, **kw
     WINDOW_POINT = int(t_window * fs)
     STRIDE_POINT = int(t_stride * fs)
 
-    data = readFile(fname)[0]
+    data = readFile(fname)[1]
 
     fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(12.8, 7.2))
+
     for start in range(0, data.size - WINDOW_POINT, STRIDE_POINT):
         # Canvas and drawing method
         for ax in axs: ax.clear()
@@ -81,10 +117,12 @@ def visualize(fname, method, fs, t_window, t_stride, drop_last=True, *args, **kw
 
         # Decoration
         fig.suptitle("{}: {} - {}".format(fname, start / fs, (start + WINDOW_POINT) / fs))
-        
+        axs[2].semilogy()        
+
         # Replay setting
         plt.pause(0.1)
 
+    # plt.show()
     plt.close()
 
     return
@@ -238,6 +276,12 @@ def sawtooth(data, fs, axs, *args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dir', help="Directory of the records.")
+    parser.add_argument('-r', '--removeBG', nargs='*', help="Remove background if background specified.")
+    parser.add_argument('-c', '--channel', type=int, default=1, help="Read from selected AD7770 Channel")
+    parser.add_argument('--compressor', default=1.0, type=float, help="Help visualizing doppler map if lower than 1.0")
+    parser.add_argument('--repeat', action='store_true', help="Repeat until KeyboardInterrupt if set true.")
+    parser.add_argument('--stride', default=0.125, type=float, help="Specified sliding length of each step")
+    parser.add_argument('--window', default=0.25, type=float, help="Specified window length in second.")
     args = parser.parse_args()
 
     # CONSTANT
@@ -247,8 +291,11 @@ def main():
     CENTER_FREQ = 5.8e9
     MODULE_TIME = 4e-3
     
-    SEGMENT_TIME = 0.5
-    STRIDE_TIME  = 0.125
+    SEGMENT_TIME = args.window
+    STRIDE_TIME  = args.stride
+
+    # bgFiles = [fname for fname in listdir('./rawdata/0503_triangular') if os.path.basename(fname).startswith('00')]
+    # loadBG(bgFiles, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
 
     # for fname in listdir('./rawdata/0503_single'):
     #     visualize(fname, single, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ)
@@ -262,9 +309,31 @@ def main():
     # for fname in listdir('./rawdata/0505_single'):
     #     visualize(fname, single, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ)
 
-    # for fname in listdir('/rawdata/0505_triangular'):
-    #     visualize(fname, triangular, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME)
-    
+    # for fname in listdir('./rawdata/0505_triangular'):
+    #     visualize(fname, triangular, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=2 * MODULE_TIME)
+
+    # -------------------------------------------------------- # 
+    # Experiment 0512                                          #
+    # -------------------------------------------------------- #
+
+    # filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_distance') if os.path.basename(fname).endswith('1.csv')]
+    # for fname in filenames:
+    #     visualize(fname, sawtooth, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
+
+    filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_4ms') if os.path.basename(fname).endswith('1.csv')]
+    for fname in filenames:
+        visualize(fname, sawtooth, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
+
+    # MODULE_TIME = 8e-3
+    # filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_8ms') if os.path.basename(fname).endswith('1.csv')]
+    # for fname in filenames:
+    #     visualize(fname, sawtooth, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
+
+    # MODULE_TIME = 16e-3
+    # filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_16ms') if os.path.basename(fname).endswith('1.csv')]
+    # for fname in filenames:
+    #     visualize(fname, sawtooth, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
+
     return
 
 if __name__ == "__main__":

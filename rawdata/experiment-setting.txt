@@ -375,3 +375,91 @@ new0407:
     - Distance: 1 (m)
     - Velocity: Var
 
+0503:
+
+- Environment: Corridor
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Person Moving with a large reflector plane
+    - Velocity: Var
+    - Distance: start from 6m, moving forward to rader
+
+0505:
+- Environment: Corridor
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 2 (m)
+    - Velocity: Var
+
+0512_sawtooth_distance:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: Var
+    - Velocity: 0
+
+0512_sawtooth_4ms:
+0512_sawtooth_8ms:
+0512_sawtooth_16ms:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / (4 ms or 8ms or 16 ms)
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 1 taper corner
+    - Distance: 2 (m)
+    - Velocity: Var
+
+0512_sawtooth_RCS:
+0512_sawtooth_RCS_LNA:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous sawtooth
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target: Var
+    - Distance: 2 (m)
+- Notes:
+    - LNA makes better SNR
+
+0512_sawtooth_LNA:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / 8 ms
+- DelayLine: 0 (m)
+- LNA: 3 
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: 2 (m)
+    - Velocity: Var
+- Notes:
+    - 1 taper corner is tore at rps = 20
