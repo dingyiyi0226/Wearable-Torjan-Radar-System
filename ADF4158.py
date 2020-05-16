@@ -375,8 +375,31 @@ def set915Default():
     
     return module
 
+def singleRamp5800Default(module):
+    module.initBitPatterns()
+
+    module.setRamp(True)
+    module.setRampMode(RampMode.SING_SAWTOOTH)
+
+    module.setPumpSetting(current=0.3125)
+    # module.setModulationInterval(centerFreq=5.75e9, bandwidth=1e8, tm=1)
+    module.setCenterFrequency(int(5.75e9))
+    module.setRampAttribute(clk2=1000, dev=16800, devOffset=0, steps=20000)
+    module.setMuxout(Muxout.THREE_STATE)
+
+    return module
+
 def main():
-    module = set5800Default()
-    
+    # GND  = 6      # T3
+    W_CLK  = 12     # T4
+    DATA   = 16     # T5
+    LE     = 18     # T6
+    TXDATA = 13     # T16
+    MUXOUT = 15     # T8
+    module = singleRamp5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
+    #module = set5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
+    for value in module.patterns.values():
+        module.sendWord(value)
+        
 if __name__ == "__main__":
     main()

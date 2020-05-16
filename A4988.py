@@ -72,13 +72,13 @@ def main():
         module = A4988(ENA=7, STEP=3, DIR=5)
 
         # module.spinBnF(iter=20, deg=180)
-        module.spinSteps(deg=10, step=36*5)
+        # module.spinSteps(deg=10, step=36*5)
 
-        # while(1):
+        while(1):
 
-        #     s = input('deg: ')
-        #     t = input('dir(0, 1): ')
-        #     module.spin(int(s), int(t))
+            s = input('deg: ')
+            t = input('dir(0, 1): ')
+            module.spin(int(s), int(t))
 
     except KeyboardInterrupt:
         GPIO.cleanup()
