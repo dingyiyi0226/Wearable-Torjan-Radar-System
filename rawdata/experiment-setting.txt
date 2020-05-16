@@ -463,3 +463,26 @@ new0407:
     - Velocity: Var
 - Notes:
     - 1 taper corner is tore at rps = 20
+
+0514_1ms_sawtooth:
+0514_1ms_triangular:
+0514_2ms_sawtooth:
+0514_2ms_triangular:
+0514_4ms_sawtooth:
+0514_4ms_triangular:
+0514_8ms_sawtooth:
+0514_8ms_triangular:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular / Continuous Sawtooth
+- Ramp: 100 MHz / 8 ms
+- DelayLine: 10 (m)
+- LNA: 2
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: 2 (m)
+    - Velocity: Var
+
