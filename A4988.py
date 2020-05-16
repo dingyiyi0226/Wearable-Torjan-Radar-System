@@ -17,10 +17,11 @@ def pulse(pin, pauseTime):
     GPIO.output(pin, False)
 
 class A4988:
-    def __init__(self, ENA, STEP, DIR):
-        self.ENA = ENA
-        self.STEP = STEP
-        self.DIR = DIR
+
+    def __init__(self, pins):
+        self.ENA = pins['ENA']
+        self.STEP = pins['STEP']
+        self.DIR = pins['DIR']
 
         self.initGPIOPins()
 
@@ -28,27 +29,22 @@ class A4988:
         for pin in (self.ENA, self.STEP, self.DIR):
             GPIO.setup(pin, GPIO.OUT)
 
-    def stop(self):
+    def _stop(self):
         GPIO.output(self.ENA, True)
 
-    def start(self):
+    def _start(self):
         GPIO.output(self.ENA, False)
 
-    def spin(self, deg, dir):
+    def spin(self, deg, clkwise):
         # 3200 step -> 360 degrees
 
-        self.start()
-
-        if dir:
-            GPIO.output(self.DIR, False)
-
-        else:
-            GPIO.output(self.DIR, True)
+        self._start()
+        GPIO.output(self.DIR, clkwise)
 
         for i in range(int(deg*3200/360)):
             pulse(self.STEP, 5e-3)
 
-        self.stop()
+        self._stop()
 
     def spinBnF(self, iter, deg):
         """ spin back and forth """
@@ -66,10 +62,17 @@ class A4988:
             self.spin(deg, True)
             time.sleep(0.5)
 
+
 def main():
 
+    DIR_PINS = {
+        'STEP': 3,
+        'DIR' : 5,
+        'ENA' : 7,
+    }
+
     try:
-        module = A4988(ENA=7, STEP=3, DIR=5)
+        module = A4988(DIR_PINS)
 
         # module.spinBnF(iter=20, deg=180)
         # module.spinSteps(deg=10, step=36*5)

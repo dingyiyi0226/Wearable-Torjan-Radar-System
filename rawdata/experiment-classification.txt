@@ -1,0 +1,77 @@
+Corridor:
+
+    5.8G:
+        Distance:
+            patch:
+                - 0220
+                - 0221
+                - 0222
+                - 0223
+
+        Velocity:
+            patch:
+                - 0305
+                - 0307
+
+        DistVelo:
+            horn:
+                - 0308_3 (failed)
+
+    915M:
+        Distance:
+            horn:
+                - 0308_2 (failed)
+            patch:
+                - 0308_1 (failed)
+
+        Velocity:
+        DistVelo:
+
+Chamber:
+
+    5.8G:
+        Distance:
+            horn:
+                - 0225hornfm05
+                - 0310_4 (test)
+
+            patch:
+                - 0225
+                - 0225fm05
+                - 0225nolinefm05
+                - 0310   (test)
+                - 0318tm
+
+                - 0318res
+                - 0331res
+
+        Velocity:
+            horn:
+                - 0310_2
+                - 0310_3 (failed)
+                - 0310_5 (failed)
+
+            patch:
+                - 0318shiftval
+                - 0318fmcw
+                - 0326single
+                - 0326single2
+                - 0331single
+                - 0331fmcw
+                - 0331fmcwnomgc
+
+        DistVelo:
+            horn:
+                - 0409   (failed)
+                - 0409n  (failed)
+
+    915M:
+        Distance:
+            horn:
+                - 0312
+                - 0312delay (failed)
+                - 0312h
+                - 0312h3    (failed)
+
+        Velocity:
+        DistVelo:

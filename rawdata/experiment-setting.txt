@@ -1,95 +1,103 @@
 0220:
 
-- in 527
-- moving target
-- target: iron plate*1
-- from 0 to 300 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in 527
+- Slope: 100MHz / 1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 300 cm
 
 0221:
 
-- in corridor
-- moving target
-- target: iron plate*1
-- from 0 to 500 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in corridor
+- Slope: 100MHz / 1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    moving target (iron plate)
+    - Distance from 0 to 500 cm
 
 0222:
 
-- in corridor
+- Environment: in corridor
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    iron plate*4
+    - Distance: from 25 to 300 cm
 - moving radar system
-- target: iron plate*4
-- from 25 to 300 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0223:
 
-- in corridor
+- Environment: in corridor
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Target: 
+    aluminum foil
+    - Distance: from 25 to 600 cm
 - moving radar system
-- target: aluminum foil
-- from 25 to 600 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0225:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz/1ms (actual 99.9969MHz/1.024ms)
 
 0225fm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
 
 0225nolinefm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
-- without 10m delayline
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz / 2ms (actual 99.9969MHz/2.048ms)
+- DelayLine: 0 (m)
 
 0225hornfm05:
 
-- in chamber
-- moving target
-- target: iron plate*1
-- from 0 to 550 cm
-- Tx slope: 100MHz/2ms (actual 99.9969MHz/2.048ms)
-- without 10m delayline
-- using horn antenna
+- Environment: in chamber
+- Target: 
+    moving target (iron plate)
+    - Distance: from 0 to 550 cm
+- Slope: 100MHz / 2ms (actual 99.9969MHz/2.048ms)
+- DelayLine: 0 (m)
+- Horn: True
 
 0305:
 
-- Frequency: 5.8G
-- variable: target(old) motor speed
+- Environment:
+- Frequency: 5.8 GHz
+- Variable: target(old) motor speed
 
 0307:
 
-- Frequency: 5.8G
-- variable: target(new) motor speed
+- Environment:
+- Frequency: 5.8 GHz
+- Variable: target(new) motor speed
 
 0308_1:
 
 - Environment: Corridor
 - Frequency: 915 MHz
-- variable: distance
-- slope: 15 MHz / 153.6µs
-- patch
+- Slope: 15 MHz / 153.6µs
+- Horn: False
+- Target:
+    Small Speed Generator
+    - Distance : Var
 
 0308_2:
 
 - Environment: Corridor
 - Frequency: 915 MHz
-- variable: distance
-- slope: 15 MHz / 153.6µs
-- horn
+- Slope: 15 MHz / 153.6µs
+- Horn: True
+- Target:
+    Small Speed Generator
+    - Distance : Var
 
 0308_3:
 Alias: speed_test_5800MHz_0308_BW_100MHz_UpRamp_2ms_no_delayline
@@ -179,6 +187,7 @@ Alias: 0310_5
     Vertical plane
 
 0312h:
+alias: 0312horizontal
 
 - Environment: Chamber
 - Frequency: 886 MHz
@@ -191,6 +200,7 @@ Alias: 0310_5
     Horizontal plane
 
 0312h3:
+alias: 0312horizontal_tm3
 
 - Environment: Chamber
 - Frequency: 886 MHz
@@ -209,7 +219,7 @@ Alias: 0310_5
 - Ramp Mode: Continuous Triangular
 - Ramp:
     - Extend tm
-- DelayLine: 0 motor
+- DelayLine: 0 (m)
 - Data Source: Arduino
 - Target:
     Horizontal plane
@@ -222,10 +232,11 @@ Alias: 0310_5
 - Slope: 100MHz / 68 ms
 
 0318shiftval:
+alias: 0318shiftvalidation
 
 - Frequency: 5.8 GHz
 - Ramp Mode: Single Frequency
-
+- Slope   0 Hz / 68 ms
 
 0318res:
 
@@ -233,8 +244,8 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- Multiple Objects (ex: 341.csv means that objects at 300 and 400 cm)
-- Target: People
+- Target: 
+    - 2 people (ex: 341.csv means that objects at 300 and 400 cm)
 
 0318fmcw:
 
@@ -249,8 +260,9 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- object @ 100 cm 
-- single 90 degree corner target
+- Object:
+    - object @ 100 cm 
+    - single 90 degree corner target
 
 0326single2:
 
@@ -258,7 +270,219 @@ Alias: 0310_5
 - Frequency: 5.8 GHz
 - Ramp Mode: Continuous Triangular
 - Slope: 100 MHz / 68 ms
-- object @ 100 cm
-- single one side target
+- Object:
+    - object @ 100 cm
+    - single one side target
 
+0331single:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Ramp Mode: Single Frequency
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 1 m
+    - Velocity: Var
+- Notes
+    - The straw is move to outer side
+
+0331fmcw:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- With MGC (?
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 1 m
+    - Velocity: Var
+
+0331fmcwnomgc:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Without MGC
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 1 m
+    - Velocity: Var
+    
+0331res:
+
+- Environment: Chamber
+- Frequency: 5.8 GHz
+- Without MGC
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Target:
+    2 Vertical planes (ex: 341.csv means small plate at 300 cm and large plate at 400 cm)
+
+0407:
+
+- Environment: Chamber
+- Frequency: 915MHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 15 MHz / 4 ms
+- DelayLine: 0 (m)
+- Target:
+    1 Vertical Plane
+
+new0407:
+
+- Environment: Chamber
+- Frequency: 915MHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 15 MHz / 4 ms
+- DelayLine: 
+    Var (_x_y for some long and short lines) 
+- Target:
+    1 Vertical Plane
+
+0409:
+
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Horn: True
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: Var (1, 2, 3)
+    - Velocity: Var (12, 15, 18, 21)
+- Notes:
+    Failure at distance=3
+
+0409n:
+
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Horn: True
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 1 (m)
+    - Velocity: Var
+
+0503:
+
+- Environment: Corridor
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Person Moving with a large reflector plane
+    - Velocity: Var
+    - Distance: start from 6m, moving forward to rader
+
+0505:
+- Environment: Corridor
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With taper corner
+    - Distance: 2 (m)
+    - Velocity: Var
+
+0512_sawtooth_distance:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: Var
+    - Velocity: 0
+
+0512_sawtooth_4ms:
+0512_sawtooth_8ms:
+0512_sawtooth_16ms:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / (4 ms or 8ms or 16 ms)
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 1 taper corner
+    - Distance: 2 (m)
+    - Velocity: Var
+
+0512_sawtooth_RCS:
+0512_sawtooth_RCS_LNA:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous sawtooth
+- Ramp: 100 MHz / 4 ms
+- DelayLine: 0 (m)
+- Antenna: Small patch
+- Horn: False
+- Target: Var
+    - Distance: 2 (m)
+- Notes:
+    - LNA makes better SNR
+
+0512_sawtooth_LNA:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Sawtooth
+- Ramp: 100 MHz / 8 ms
+- DelayLine: 0 (m)
+- LNA: 3 
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: 2 (m)
+    - Velocity: Var
+- Notes:
+    - 1 taper corner is tore at rps = 20
+
+0514_1ms_sawtooth:
+0514_1ms_triangular:
+0514_2ms_sawtooth:
+0514_2ms_triangular:
+0514_4ms_sawtooth:
+0514_4ms_triangular:
+0514_8ms_sawtooth:
+0514_8ms_triangular:
+- Environment: Chamber
+- Frequency: 5.8GHz
+- Ramp Mode: Continuous Triangular / Continuous Sawtooth
+- Ramp: 100 MHz / 8 ms
+- DelayLine: 10 (m)
+- LNA: 2
+- Antenna: Small patch
+- Horn: False
+- Target:
+    Speed Generator
+    - With 4 taper corners
+    - Distance: 2 (m)
+    - Velocity: Var
 

@@ -363,7 +363,7 @@ def set5800Default(module):
 
     return module
 
-def set915Default():
+def set915Default(module):
     module.initBitPatterns(module)
 
     module.setRamp(True)
@@ -396,8 +396,9 @@ def main():
     LE     = 18     # T6
     TXDATA = 13     # T16
     MUXOUT = 15     # T8
+    
     module = singleRamp5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
-    #module = set5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
+    # module = set5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
     for value in module.patterns.values():
         module.sendWord(value)
         

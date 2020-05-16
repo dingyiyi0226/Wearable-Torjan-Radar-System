@@ -13,7 +13,7 @@ class SigView:
 
         ## Axis 0: Signal in Time Domain
         self.ax[0].set_xlim(0, maxTime)
-        # self.ax[0].set_ylim(-0.3, 0.3)    
+        # self.ax[0].set_ylim(-0.3, 0.3)
         self.ax[0].set_ylim(0, 1)           # on arduino
         self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
@@ -32,10 +32,6 @@ class SigView:
         self.timeLine, = self.ax[0].plot([], [])
         self.freqLine, = self.ax[1].plot([], [], 'r')
         self.avgFreqLine, = self.ax[2].plot([], [], 'r')
-
-        # self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-        # self.button = Button(self.buttonAx, 'Test', color='0.8', hovercolor='0.6')
-        # self.button.on_clicked(self.onClick)
 
     def figShow(self):
         plt.pause(1)
@@ -60,9 +56,6 @@ class SigView:
 
         return self.timeLine, self.freqLine, self.avgFreqLine,
 
-    # def onClick(self, event):
-    #     print('click')
-
 class PPIView:
     """ Radar Interface """
 
@@ -76,10 +69,6 @@ class PPIView:
         self.fig.subplots_adjust(left=0.3)
 
         self.ppiData, = self.ax.plot([], [], '.r')
-
-        # self.buttonAx = plt.axes([0.05, 0.05, 0.15, 0.1])
-        # self.button = Button(self.buttonAx, 'Testt', color='0.8', hovercolor='0.6')
-        # self.button.on_clicked(self.onClick)
 
     def figShow(self):
         plt.pause(1)
@@ -96,6 +85,3 @@ class PPIView:
         # self.ppiData.set_markerfacecolor((1,0,0,0.2*(frame%5)))
 
         return self.ppiData,
-
-    # def onClick(self, event):
-    #     print('click')
