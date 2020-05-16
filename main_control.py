@@ -98,8 +98,6 @@ class FMCWRadar:
         ## SIGNAL PROCESSING
 
         self._signalLength = 0   ## length of received data. len(timeSig) = 2*len(freqSig)
-        # self._resetFlag = False  ## reset signal flag
-        # self._signal = []        ## received data (temp signal)
 
         self._samplingTime = 0.  ## in mircosecond
         self._peakFreqsIdx = []  ## peak freq index in fftSig
@@ -107,7 +105,8 @@ class FMCWRadar:
                                  ## the tuple contain only one freq iff the object is stationary
 
         self.backgroundSig = {}
-        self.realTimeSig = {'timeSig':[1], 'timeAxis':[1],'freqSig':[1],'freqAxis':[1], 'avgFreqSig':[1]}
+        self.realTimeSig = {'timeSig':np.zeros(1),'timeAxis':np.zeros(1),
+                            'freqSig':np.zeros(1),'freqAxis':np.zeros(1), 'avgFreqSig':np.zeros(1)}
 
     ## PUBLIC FUNCTION
 
@@ -137,12 +136,12 @@ class FMCWRadar:
 
         if not signal: return
 
-        self.realTimeSig['timeSig'] = signal.copy()
-        self._signalLength = len(self.realTimeSig['timeSig'])
+        self.realTimeSig['timeSig'] = np.array(signal)
+        self._signalLength = self.realTimeSig['timeSig'].shape[0]
         self._samplingTime = time * 1e-6
 
-        self.realTimeSig['timeAxis'] = [i*self._samplingTime/self._signalLength for i in range(self._signalLength)]
-        self.realTimeSig['freqAxis'] = [i/self._samplingTime for i in range(self._signalLength//2)]
+        self.realTimeSig['timeAxis'] = np.arange(self._signalLength) * self._samplingTime / self._signalLength
+        self.realTimeSig['freqAxis'] = np.arange(self._signalLength//2) / self._samplingTime
 
         return self._signalProcessing()
 
@@ -164,10 +163,11 @@ class FMCWRadar:
     def _fft(self):
         """ Perform FFT on realtime signal """
 
-        PEAK_HEIGHT = 5e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
+        PEAK_HEIGHT = 1e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
         PEAK_PROMINENCE = 1e-4  ## prominence of peak frequency must exceed PEAK_PROMINENCE
-        fftSignal_o = abs(np.fft.fft(self.realTimeSig['timeSig']))
-        self.realTimeSig['freqSig'] = [i*2/self._signalLength for i in fftSignal_o[:self._signalLength//2]]
+
+        fftSignal = np.abs(np.fft.fft(self.realTimeSig['timeSig'])) / self._signalLength
+        self.realTimeSig['freqSig'] = fftSignal[:self._signalLength//2]  ## only save the positive freqs.
         self._avgFFTSig()
 
         self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['avgFreqSig'], height=PEAK_HEIGHT, prominence=PEAK_PROMINENCE)
@@ -176,9 +176,8 @@ class FMCWRadar:
     def _avgFFTSig(self):
         """ Averaging the FFT signal """
 
-        AVGTICK = 3   ## the number of ticks on frequency axis
-        minFreqdiff = 1/self._samplingTime
-        winLength = int(self._fm*self._samplingTime)
+        BW = self._fm * 1                 ## bandwidth of the window
+        winLength = int(BW*self._samplingTime)  ## length = BW/df = BW*T
         window = np.ones(winLength)       ## window for averaging the signal
         window = window/window.sum()
 
@@ -343,12 +342,17 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
     # Load csvfile
     with open(filename) as file:
         datas = csv.reader(file)
-
-        for ind, data in enumerate(datas):
-            if ind==0: continue
-            elif ind==1:
-                simSampFreq = 1 / float(data[-1])
-            else:
+        row = next(datas)
+        if len(row)==1:   # new format
+            simSampFreq = 16e3
+            channel = 0 # 1~8
+            for data in datas:
+                if len(data[channel]):   # omit the last line
+                    simSignal.append(float(data[channel])/1e6)
+        else:
+            row = next(datas)
+            simSampFreq = 1/float(row[-1])
+            for data in datas:
                 simSignal.append(float(data[1]))
 
     samSig = []
