@@ -88,7 +88,7 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
 
     if len(filenames)==1:
         filename = filenames[0]
-        SPLIT_NUM = 5
+        SPLIT_NUM = 1
         for ind in range(SPLIT_NUM):
             y, fs = parseCSV(filename, today, start=ind/SPLIT_NUM, end=SPLIT_NUM)
 
@@ -168,17 +168,19 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
             freqDataNp[:, i] = freqDataNp[:, i] - freqDataNp[:, 0]
             
         freqDataNp = np.clip(freqDataNp, a_min=0, a_max=None)
-        freqDataNp[:, 0] = 0
+        # freqDataNp[:, 0] = 0
 
     if normalizeFreq:
         for i in range(1, freqDataNp.shape[1]):
             freqDataNp[:, i] = freqDataNp[:, i] * (i * 0.25) ** 0.3
 
     if avgFreq:
-        AVGTICK = 3
+
         fm = 1 / tm
-        avgLength = max(1, int(fm/minFreqDiff*AVGTICK))
-        window = np.ones(avgLength)
+        BW = fm * 2
+        avgLength = max(1, int(BW/minFreqDiff))
+        # window = np.ones(avgLength)
+        window=sg.blackman(avgLength)
         for i in range(1, freqDataNp.shape[1]):
             freqDataNp[:, i] = sg.oaconvolve(freqDataNp[:, i], window/window.sum(), mode='same')
 
@@ -403,7 +405,7 @@ def plotSingleFile(today, filename, maxFreq=None, removeDC=False):
     plt.subplots_adjust(hspace=0.9)
     plt.show()
 
-def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, removeBG, normalizeFreq, avgFreq):
+def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn, removeBG, normalizeFreq, avgFreq):
     """ plot fft signal for each file """
     
     ## Const
@@ -412,7 +414,17 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
 
     ## Graph
 
-    fig, ax =  plt.subplots(math.ceil(freqDataNp.shape[1]/3), 3, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
+
+
+    # if freqDataNp.shape[1] <= 3:
+    #     fig, ax =  plt.subplots(max(2, freqDataNp.shape[1]), 1, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
+    # else:
+        # fig, ax =  plt.subplots(math.ceil(freqDataNp.shape[1]/3), 3, sharex=False, figsize=(8,7), num='Figure Name')  ## num is **kw_fig
+    if oneColumn:
+        fig, ax =  plt.subplots(freqDataNp.shape[1], 1, sharex=False, figsize=(5,7), num='Figure Name')  ## num is **kw_fig
+    else:
+        fig, ax =  plt.subplots(math.ceil(freqDataNp.shape[1]/2), 2, sharex=False, figsize=(5,7), num='Figure Name')  ## num is **kw_fig
+  
 
     N = freqDataNp.shape[0]
     t_axis = [i*increment for i in range(N)]
@@ -424,13 +436,14 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
         title += ' {}'.format(filenames[0])
         for pltind in range(freqDataNp.shape[1]):
 
-            currentAxes = ax[pltind%3] if freqDataNp.shape[1]<3 else ax[pltind//3, pltind%3]
+            currentAxes = ax[pltind]
 
+            # currentAxes = ax[pltind] if  else ax[pltind//3, pltind%3]
             # currentAxes.set_yscale('log')
 
             currentAxes.plot(f_axis[:maxFreqIndex], freqDataNp[:maxFreqIndex, pltind], color='red')
             currentAxes.set_title('{}/{}'.format(pltind, freqDataNp.shape[1]))
-            # currentAxes.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+            currentAxes.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
 
             maxIndex = freqDataNp[:maxFreqIndex, pltind].argmax()
             currentAxes.plot(f_axis[maxIndex], freqDataNp[maxIndex, pltind], 'x')
@@ -438,13 +451,24 @@ def plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenam
     else:
         for pltind, filename in enumerate(filenames):
 
-            currentAxes = ax[pltind%3] if freqDataNp.shape[1]<3 else ax[pltind//3, pltind%3]
+
+            if oneColumn:
+                currentAxes = ax[pltind]
+            else:
+                if pltind >= math.ceil(freqDataNp.shape[1]/2):
+                    currentAxes = ax[pltind%math.ceil(freqDataNp.shape[1]/2),1]
+                else:
+                    currentAxes = ax[pltind,0]
+
 
             currentAxes.plot(f_axis[:maxFreqIndex], freqDataNp[:maxFreqIndex, pltind], color='red')
-            currentAxes.set_title(filename[:-4]+' cm')
-            currentAxes.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+            # currentAxes.set_ylim((-5e-5, 1e-2))
 
-    
+            # currentAxes.set_title(filename[:-4]+' cm')
+            # currentAxes.set_yscale('log')
+            # currentAxes.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useMathText=True)
+
+
     if removeBG:
         title += ' remove background'
     if normalizeFreq:
@@ -478,7 +502,7 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, variableL
 
     theoFreqList, _ = plotTheoretical(variableList, setting, roundup, doPlot=False)
 
-    plt.figure('Figure')
+    plt.figure('Figure',figsize=(6,8))
 
     title = today
     if removeBG:
@@ -528,6 +552,9 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
         title += ' avgFreq'
 
     fig.suptitle(title)
+
+    if removeBG:
+        freqDataNp[:, 0]=0
 
     ## Figure 1: Experiment
 
@@ -606,33 +633,33 @@ def main():
 
     ## Settings definitions at plotTheoretical() documentation
 
-    DELAYLINE = 10 * (2.24 ** 0.5)
-    SETUPLINE = 1 * (2.24 ** 0.5)
+    DELAYLINE = 10 * (3 ** 0.5)
+    SETUPLINE = 1.5 * (2.24 ** 0.5)
 
     ## Tide up setting
 
     todaySetting = {
         'BW': 100e6,
-        'tm': 4000e-6,
+        'tm': 8000e-6,
         'delayTmRatio': 0,
         'distanceOffset': SETUPLINE+DELAYLINE,
-        'freq': 5.8e9,
+        'freq': 5.8e6,
         'varible': 'v',
         'distance': 2,
-        'velo': 20,
+        'velo': 0,
     }
 
     ## Load files
 
-    today = '0514-tri2'
+    today = '0514-tri4'
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
     filenames.sort()
     # filenames.remove('202.csv')
-    # filenames = ['200201.csv',]
+    # filenames = ['200001.csv',]
     # print(filenames)
 
-    # variableList = [float(i[:-5]) / 100 for i in filenames]
-    variableList = [int(i[-7:-5]) for i in filenames]
+    variableList = [float(i[:-5]) / 100 for i in filenames]
+    # variableList = [int(i[-7:-5]) for i in filenames]
     # variableList = [4 - i*0.2 for i in range(10)]
     # variableList = range(5)
 
@@ -666,26 +693,26 @@ def main():
 
     print('freqdata shape: ', freqDataNp.shape)
     # freqDataNp[0] = 0   # removeDC
-    # freqDataNp -= bgfreqDataNp
     # freqDataNp[freqDataNp>0.005] = 0
-    # freqDataNp = freqDataNp.clip(0)
-    # maxFreq = 5000
+    # freqDataNp = freqDataNp.clip(1e-20)
+    # freqDataNp = 20 * np.log10(freqDataNp)
+    maxFreq = 5000
 
 
     ## Plot Files
 
-    # plotSingleFile(today, filenames[0], maxFreq=4000, removeDC=False)
+    # plotSingleFile(today, filenames[-1], maxFreq=5000, removeDC=False)
 
-    # plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames,
-    #     removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn=True,
+        removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
     # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
     #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
 
 
 
-    plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
-        roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    # plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
+    #     roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
     # plotTheoretical([i for i in np.arange(1, 6, 0.25)], todaySetting, roundup=False, doPlot=True)
 

@@ -52,7 +52,7 @@ class Troy:
         ## Modules
 
         self.rotateMotor = A4988(DIR_PINS)
-        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=99.9969e6, tm=2.048e-3, pins=ADF_HIGH_PINS)
+        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=100e6, tm=8e-3, pins=ADF_HIGH_PINS)
         self.lowFreqRadar  = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
 
         ## Data
@@ -75,6 +75,10 @@ class Troy:
         deltaDir = direction - self.currentDir
         self.rotateMotor.spin(abs(deltaDir), deltaDir>0)
         self.currentDir = direction
+
+    def setBgSignal(self, overwrite):
+        self.highFreqRadar.setBgSig(overwrite)
+        self.lowFreqRadar.setBgSig(overwrite)
 
 
 class FMCWRadar:
@@ -104,9 +108,9 @@ class FMCWRadar:
         self._objectFreqs  = []  ## [(f1,f2), (f3,f4), ... ] two freqs cause by an object
                                  ## the tuple contain only one freq iff the object is stationary
 
-        self.backgroundSig = {}
+        self.backgroundSig = None
         self.realTimeSig = {'timeSig':np.zeros(1),'timeAxis':np.zeros(1),
-                            'freqSig':np.zeros(1),'freqAxis':np.zeros(1), 'avgFreqSig':np.zeros(1)}
+                            'freqSig':np.zeros(1),'freqAxis':np.zeros(1), 'processedSig':np.zeros(1)}
 
     ## PUBLIC FUNCTION
 
@@ -131,14 +135,14 @@ class FMCWRadar:
         Parameters
         ----------
         time : int
-            time record in unit (us)
+            time record in unit (s)
         """
 
         if not signal: return
 
         self.realTimeSig['timeSig'] = np.array(signal)
         self._signalLength = self.realTimeSig['timeSig'].shape[0]
-        self._samplingTime = time * 1e-6
+        self._samplingTime = time
 
         self.realTimeSig['timeAxis'] = np.arange(self._signalLength) * self._samplingTime / self._signalLength
         self.realTimeSig['freqAxis'] = np.arange(self._signalLength//2) / self._samplingTime
@@ -146,59 +150,88 @@ class FMCWRadar:
         return self._signalProcessing()
 
 
-    def setBackgroundSig(self):
-        self.backgroundSig = self.realTimeSig
+    def setBgSig(self, overwrite):
+        if overwrite:
+            self.backgroundSig = self.realTimeSig.copy()
+        else:
+            currentSig = self.realTimeSig.copy()
+            for key, sig in currentSig.items():
+                self.backgroundSig[key] = 0.75 * self.backgroundSig[key] + 0.25 * sig
 
     ## PRIVATE FUNCTION
 
     ## SIGNAL PROCESSING FUNCTIONS
 
     def _signalProcessing(self):
+
         self._fft()
-        if not self._findFreqPair():
-            print('no peak frequency')
-            return
+        self._rmBgSig()
+        self._avgFreqSig()
+        if not self._findPeaks(height=3e-3, prominence=1e-4):
+            # print('no peak frequency')
+            return None
+
+        self._findFreqPair(peakDiff=1e-3)
         return self._calculateInfo()
 
     def _fft(self):
         """ Perform FFT on realtime signal """
 
-        PEAK_HEIGHT = 1e-3      ## amplitude of peak frequency must exceed PEAK_HEIGHT
-        PEAK_PROMINENCE = 1e-4  ## prominence of peak frequency must exceed PEAK_PROMINENCE
-
         fftSignal = np.abs(np.fft.fft(self.realTimeSig['timeSig'])) / self._signalLength
         self.realTimeSig['freqSig'] = fftSignal[:self._signalLength//2]  ## only save the positive freqs.
-        self._avgFFTSig()
+        self.realTimeSig['processedSig'] = fftSignal[:self._signalLength//2].copy()
 
-        self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['avgFreqSig'], height=PEAK_HEIGHT, prominence=PEAK_PROMINENCE)
-        # print(self._peakFreqsIdx)
+    def _rmBgSig(self):
+        """ Remove background and set min value to 0 """
 
-    def _avgFFTSig(self):
+        if self.backgroundSig is not None:
+            self.realTimeSig['processedSig'] -= self.backgroundSig['freqSig']
+            self.realTimeSig['processedSig'] = self.realTimeSig['processedSig'].clip(0)
+
+    def _avgFreqSig(self):
         """ Averaging the FFT signal """
 
-        BW = self._fm * 1                 ## bandwidth of the window
+        BW = self._fm * 2                 ## bandwidth of the window
         winLength = int(BW*self._samplingTime)  ## length = BW/df = BW*T
-        window = np.ones(winLength)       ## window for averaging the signal
+        # window = np.ones(winLength)       ## window for averaging the signal
+        window = sg.blackman(winLength)   ## window for averaging the signal
+        # print(winLength)
         window = window/window.sum()
 
-        self.realTimeSig['avgFreqSig'] = sg.oaconvolve(self.realTimeSig['freqSig'], window, mode='same')
-        # self.realTimeSig['avgFreqSig'] = self.realTimeSig['freqSig']
+        self.realTimeSig['processedSig'] = sg.oaconvolve(self.realTimeSig['processedSig'], window, mode='same')
 
-    def _findFreqPair(self) -> bool:
-        """
-        Split the freqs in `_peakFreq` with same intensity into pairs
+    def _findPeaks(self, height, prominence) -> bool:
+        """ Find peaks in processedSig
         
+        Parameters
+        ----------
+        height : float
+            min amplitude of peak frequencies
+        prominence : float
+            min prominence of peak frequencies
+
         Return
         ------
         status : bool
-            False if no peak frequency is found.
+            False if no peak frequency is found
         """
 
-        PEAK_DIFF = 1e-4  ## we assume two peak belong to same object if and only if the amplitude
-                          ## difference between two peaks < PEAK_DIFF
-        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['avgFreqSig'][k], reverse=True)
+        self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['processedSig'], height=height, prominence=prominence)
+        # print(self._peakFreqsIdx)
+        return len(self._peakFreqsIdx)!=0
 
-        if not sortedFreqIndex: return False
+    def _findFreqPair(self, peakDiff):
+        """
+        Split the freqs in `_peakFreq` with same intensity into pairs
+
+        Parameters
+        ----------
+        peakDiff : float
+            we assume two peaks belong to same object if and only if the amplitude
+            difference between two peaks < peakDiff
+        """
+
+        sortedFreqIndex = sorted(self._peakFreqsIdx, key=lambda k: self.realTimeSig['processedSig'][k], reverse=True)
 
         freqAmplitude = 0
         tmpFreqIndex = 0
@@ -207,24 +240,22 @@ class FMCWRadar:
         for freqIndex in sortedFreqIndex:
             # print(freqIndex, self.realTimeSig['freqSig'][freqIndex])
             if freqAmplitude == 0:
-                freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
+                freqAmplitude = self.realTimeSig['processedSig'][freqIndex]
                 tmpFreqIndex = freqIndex
                 continue
 
-            if (freqAmplitude - self.realTimeSig['avgFreqSig'][freqIndex]) < PEAK_DIFF:
+            if (freqAmplitude - self.realTimeSig['processedSig'][freqIndex]) < peakDiff:
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), int(freqIndex/self._samplingTime)))
                 freqAmplitude = 0.
             else:
                 # print('ff',int(tmpFreqIndex/self._samplingTime))
                 self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
-                freqAmplitude = self.realTimeSig['avgFreqSig'][freqIndex]
+                freqAmplitude = self.realTimeSig['processedSig'][freqIndex]
                 tmpFreqIndex = freqIndex
             # print(freqIndex)
 
         if freqAmplitude != 0:
             self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
-
-        return True
 
     def _calculateInfo(self):
         """
@@ -257,8 +288,14 @@ class FMCWRadar:
 
                 objRange1 -= self._distanceOffset
                 objRange2 -= self._distanceOffset
-                infoList.append((objRange1, objVelo1))  # have two solutions
-                infoList.append((objRange2, objVelo2))
+
+                # have two solutions
+                # if velo > 25, omit it
+
+                if objVelo1<25:
+                    infoList.append((objRange1, objVelo1))
+                if objVelo2<25:
+                    infoList.append((objRange2, objVelo2))
                 # print( (objRange1, objVelo1))
                 # print( (objRange2, objVelo2))
 
@@ -280,8 +317,8 @@ def read(ser, troy: Troy, readEvent: threading.Event):
     isValid = True
     samplingTime = 0
 
-    while True:
-        readEvent.wait()
+    while readEvent.is_set():
+        # readEvent.wait()
         ## maybe have to reset buffer
 
         ser.write(b'r ')
@@ -306,7 +343,7 @@ def read(ser, troy: Troy, readEvent: threading.Event):
             elif s.startswith('e'):
                 # print('endReadSignal ', s[2:])
                 try:
-                    samplingTime = float(s[2:])
+                    samplingTime = float(s[2:]) * 1e-6
                     
                 except ValueError:
                     print('Value Error: ', s[2:])
@@ -348,7 +385,7 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
             channel = 0 # 1~8
             for data in datas:
                 if len(data[channel]):   # omit the last line
-                    simSignal.append(float(data[channel])/1e6)
+                    simSignal.append(float(data[channel])/1e4)
         else:
             row = next(datas)
             simSampFreq = 1/float(row[-1])
@@ -359,21 +396,22 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
     i=1
     j=random.randrange(len(simSignal))
 
-    while True:
-        readEvent.wait()
+    while readEvent.is_set():
+        # readEvent.wait()
 
         if i % int(samTime * samFreq) != 0:
             samSig.append(simSignal[(int(j+i*simSampFreq/samFreq) % len(simSignal))])
 
         else:
 
-            troy.setSignal(samSig, samTime*1e6, isHigh=True)
+            troy.setSignal(samSig, samTime, isHigh=True)
 
             samSig.clear()
             j = random.randrange(len(simSignal))
             time.sleep(0.001)
 
         i+=1
+    # print('exit thread')
 
 def port() -> str:
     """ Find the name of the port """
@@ -430,7 +468,7 @@ def main():
         readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
     else:
         readThread = threading.Thread(target=readSimSignal, daemon=True,
-            kwargs={'filename': args.simulation, 'samFreq': 1e4, 'samTime': 2.4e-2, 'troy': troy, 'readEvent': readEvent})
+            kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
         
     readThread.start()
     readEvent.set()
@@ -450,6 +488,16 @@ def main():
                     print('Has been reading signal')
                 else:
                     print('Reading Signal')
+
+                    readEvent = threading.Event()
+
+                    if args.simulation is None:
+                        readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
+                    else:
+                        readThread = threading.Thread(target=readSimSignal, daemon=True,
+                            kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
+
+                    readThread.start()
                     readEvent.set()
 
             elif s.startswith('stop'):
@@ -459,23 +507,32 @@ def main():
                     readEvent.clear()
                     print('Stop Reading Signal')
 
+            elif s.startswith('setbg'):
+                # if s contains one argument only, overwrite background sig
+                # otherwise, take average of previous background sig
+
+                if len(s.split())==1:
+                    print('Reset Background Signal')
+                    troy.setBgSignal(overwrite=True)
+                else:
+                    troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
-                view = SigView(maxFreq=5e3, maxTime=0.2)  # for arduino
+                view = SigView(maxFreq=5e3, maxTime=1)  # for arduino
                 # view = SigView(maxFreq=10e3, maxTime=1e-2)  # for simulation
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
-                    init_func=view.init, interval=100, blit=True,
+                    init_func=view.init, interval=200, blit=True,
                     fargs=(troy.highFreqRadar.realTimeSig,))
                 view.figShow()
 
             elif s.startswith('ppi'):
-                view = PPIView(maxR=5)
+                view = PPIView(maxR=25)
                 views.append(view)
 
                 animation = FuncAnimation(view.fig, view.update,
-                    frames=100, init_func=view.init, interval=100, blit=True,
-                    fargs=(troy.currentDir, troy.highData[troy.currentDir]))
+                    init_func=view.init, interval=200, blit=True,
+                    fargs=(troy.highData,))
 
                 view.figShow()
 
@@ -538,6 +595,37 @@ def main():
             elif s.startswith('info'):
                 print('high freq info:', troy.highData)
                 print('low freq info:', troy.lowData)
+
+            elif s.startswith('bgsig'):
+                if troy.highFreqRadar.backgroundSig is None:
+                    print('Background signal not exist')
+                    continue
+                view = SigView(maxFreq=5e3, maxTime=1, figname='Bg Waveform')  # for arduino
+                views.append(view)
+                animation = FuncAnimation(view.fig, view.update,
+                    init_func=view.init, interval=200, blit=True,
+                    fargs=(troy.highFreqRadar.backgroundSig,))
+                view.figShow()
+
+            elif s.startswith('file'):
+
+                filename = s.split()[-1]
+                filename = os.path.join('./rawdata', filename)
+                if not os.path.exists(filename):
+                    print('file {} not exists'.format(filename))
+                    continue
+
+                print('Stop current reading thread')
+
+                readEvent.clear()
+                readEvent = threading.Event()
+
+                readThread = threading.Thread(target=readSimSignal, daemon=True,
+                    kwargs={'filename': filename, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
+                
+                readThread.start()
+                readEvent.set()
+                print('Reading Signal')
 
             elif s.startswith('q'):
                 break
