@@ -470,8 +470,8 @@ def main():
         readThread = threading.Thread(target=readSimSignal, daemon=True,
             kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
         
-    readThread.start()
     readEvent.set()
+    readThread.start()
     print('Reading Signal')
 
     views = []
@@ -497,8 +497,8 @@ def main():
                         readThread = threading.Thread(target=readSimSignal, daemon=True,
                             kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
 
-                    readThread.start()
                     readEvent.set()
+                    readThread.start()
 
             elif s.startswith('stop'):
                 if not readEvent.is_set():
@@ -518,8 +518,8 @@ def main():
                     troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
-                view = SigView(maxFreq=5e3, maxTime=1)  # for arduino
-                # view = SigView(maxFreq=10e3, maxTime=1e-2)  # for simulation
+                # view = SigView(maxFreq=4e3, maxTime=0.1)  # for arduino
+                view = SigView(maxFreq=5e3, maxTime=1)  # for simulation
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
@@ -623,8 +623,8 @@ def main():
                 readThread = threading.Thread(target=readSimSignal, daemon=True,
                     kwargs={'filename': filename, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
                 
-                readThread.start()
                 readEvent.set()
+                readThread.start()
                 print('Reading Signal')
 
             elif s.startswith('q'):
