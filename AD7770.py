@@ -133,7 +133,7 @@ def visualize(fname, visualMethod, fs, t_window, t_stride, drop_last=True, *args
         # Canvas and drawing method
         for ax in axs: ax.clear()
         segment = data[start: start + WINDOW_POINT]
-        method(segment, fs, axs, **kwargs)
+        visualMethod(segment, fs, axs, **kwargs)
 
         # Decoration
         fig.suptitle("{}: {} - {}".format(fname, start / fs, (start + WINDOW_POINT) / fs))
@@ -301,7 +301,7 @@ def main():
 
         plt.savefig('bg.png')
 
-    raise
+    # raise
 
     # -------------------------------------------------------- # 
     # Experiment 0512                                          #
@@ -309,7 +309,7 @@ def main():
 
     filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_4ms') if os.path.basename(fname).endswith('1.csv')]
     for fname in filenames:
-        visualize(fname, sawtooth, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
+        visualize(fname, singleModulation, SAMPLE_FREQ, SEGMENT_TIME, STRIDE_TIME, fc=CENTER_FREQ, bw=BANDWIDTH, tm=MODULE_TIME)
 
     # MODULE_TIME = 8e-3
     # filenames = [fname for fname in listdir('./rawdata/0512_sawtooth_8ms') if os.path.basename(fname).endswith('1.csv')]
