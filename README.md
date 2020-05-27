@@ -2,8 +2,13 @@
 
 ## 2020 IEEE AP-S Student Design Contest
 
+## How to use
+
+## Execute Environment
+
+Raspberry Pi 3B, with Python 3.5.3
+
 ## Requirements
 
-1. Python3
-    1. Kivy
-    2. Scipy
+1. Numpy, Scipy, Matplotlib
+2. spidev

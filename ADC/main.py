@@ -16,7 +16,7 @@ import RPi.GPIO as GPIO
 # os.nice(20)
 
 parser = argparse.ArgumentParser("High Precision Anolog / Digital Converter")
-parser.add_argument("-n", "--number", default=1200, type=int, help="Number of data points.")
+parser.add_argument("-n", "--number", default=4000, type=int, help="Number of data points.")
 parser.add_argument("--accept", default=1.6e4, type=float, help="Threshold to accept the sampling")
 parser.add_argument("-c", "--channel", default=0, type=int, help="Serial port number.")
 args = parser.parse_args()
@@ -28,17 +28,17 @@ def main():
     try:
         ADC = ADS1256.ADS1256()
 
-        ADC.ADS1256_init()
-        ADC.ADS1256_SetChannal(args.channel)
-        ADC.ADS1256_WriteCmd(ADS1256.CMD['CMD_SYNC'])
-        ADC.ADS1256_WriteCmd(ADS1256.CMD['CMD_WAKEUP'])
-        ADC.ADS1256_Start_Read_ADC_Data_Continuous()
+        ADC.init()
+        ADC.SetChannal(args.channel)
+        ADC.WriteCmd(ADS1256.CMD['CMD_SYNC'])
+        ADC.WriteCmd(ADS1256.CMD['CMD_WAKEUP'])
+        ADC.Start_Read_ADC_Data_Continuous()
 
         while True:
             # Load data points
             timestamp = time.time()
             for i in range(args.number):
-                buf[i] = ADC.ADS1256_Read_ADC_Data_Continuous()
+                buf[i] = ADC.Read_ADC_Data_Continuous()
             timedelta = time.time() - timestamp
             fs = args.number / timedelta
             print("\r{}".format(fs), end="")
