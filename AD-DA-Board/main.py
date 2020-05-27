@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import argparse
+import os
 import time
 
 import numpy as np
@@ -12,8 +13,11 @@ import ADS1256
 import DAC8532
 import RPi.GPIO as GPIO
 
+# os.nice(20)
+
 parser = argparse.ArgumentParser("High Precision Anolog / Digital Converter")
 parser.add_argument("-n", "--number", default=1200, type=int, help="Number of data points.")
+parser.add_argument("--accept", default=1.6e4, type=float, help="Threshold to accept the sampling")
 parser.add_argument("-c", "--channel", default=0, type=int, help="Serial port number.")
 args = parser.parse_args()
 
@@ -37,22 +41,28 @@ def main():
                 buf[i] = ADC.ADS1256_Read_ADC_Data_Continuous()
             timedelta = time.time() - timestamp
             fs = args.number / timedelta
+            print("\r{}".format(fs), end="")
 
             # Reset plot
-            plt.cla()
-            buf /= (10 ** 6)
+            if (fs > args.accept):
+                buf /= (10 ** 6)
 
-            # Time Axis
-            ax[0].plot(np.linspace(0, timedelta, args.number), buf)
+                # Time Axis
+                ax[0].clear()
+                ax[0].plot(
+                    np.linspace(0, timedelta, args.number), 
+                    buf
+                )
 
-            # Frequency Axis
-            ax[1].plot(
-                np.linspace(-fs / 2, fs / 2, args.number, endpoint=False), 
-                np.abs(fftshift(fft(buf))) / args.number
-            )
+                # Frequency Axis
+                ax[1].clear()
+                ax[1].plot(
+                    np.linspace(-fs / 2, fs / 2, args.number, endpoint=False), 
+                    np.abs(fftshift(fft(buf))) / args.number
+                )
 
-            # Show figure
-            plt.pause(0.25)
+                # Show figure
+                plt.pause(0.01)
 
     except Exception as e:
         print(e)
