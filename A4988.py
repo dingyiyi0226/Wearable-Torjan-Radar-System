@@ -15,6 +15,7 @@ def pulse(pin, pauseTime):
     GPIO.output(pin, True)
     time.sleep(pauseTime)
     GPIO.output(pin, False)
+    time.sleep(pauseTime)
 
 class A4988:
 

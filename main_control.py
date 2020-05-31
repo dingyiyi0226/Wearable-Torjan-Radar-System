@@ -53,7 +53,7 @@ class Troy:
 
         self.rotateMotor = A4988(DIR_PINS)
         self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=100e6, tm=8e-3, pins=ADF_HIGH_PINS)
-        self.lowFreqRadar  = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
+        # self.lowFreqRadar  = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
 
         ## Data
 
@@ -66,8 +66,8 @@ class Troy:
 
         if isHigh:
             self.highData[self.currentDir] = self.highFreqRadar.setSignal(signal, time)
-        else:
-            self.lowData[self.currentDir] = self.lowFreqRadar.setSignal(signal, time)
+        # else:
+        #     self.lowData[self.currentDir] = self.lowFreqRadar.setSignal(signal, time)
 
 
     def setDirection(self, direction):
@@ -78,7 +78,7 @@ class Troy:
 
     def setBgSignal(self, overwrite):
         self.highFreqRadar.setBgSig(overwrite)
-        self.lowFreqRadar.setBgSig(overwrite)
+        # self.lowFreqRadar.setBgSig(overwrite)
 
 
 class FMCWRadar:
@@ -198,7 +198,7 @@ class FMCWRadar:
         # print(winLength)
         window = window/window.sum()
 
-        self.realTimeSig['processedSig'] = sg.oaconvolve(self.realTimeSig['processedSig'], window, mode='same')
+        self.realTimeSig['processedSig'] = sg.convolve(self.realTimeSig['processedSig'], window, mode='same')
 
     def _findPeaks(self, height, prominence) -> bool:
         """ Find peaks in processedSig
@@ -430,7 +430,7 @@ def port() -> str:
         if (sys.platform.startswith('linux')):
             ports = os.listdir('/dev/')
             for i in ports:
-                if i[0:-1] == 'ttyUSB':
+                if i.startswith('ttyUSB') or i.startswith('ttyACM'):
                     port = i
                     break;
             port = '/dev/' + port

@@ -248,7 +248,7 @@ def plotTheoretical(varibleList, setting, roundup, doPlot=True):
     elif setting['varible']=='v':
         for velocity in varibleList:
 
-            timeDelay = (setting['distance']+setting['distanceOffset'])/3e8
+            timeDelay = (2*setting['distance']+setting['distanceOffset'])/3e8
             beatFreq = timeDelay*slope
             doppFreq = velocity*2/3e8*setting['freq']
 
@@ -515,9 +515,9 @@ def plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, variableL
     plt.plot(variableList[1:], theoFreqList[1:], '.-', label='theo')
 
     if setting['varible'] == 'd':
-        plt.set_xlabel('Distance (m)')
+        plt.xlabel('Distance (m)')
     elif setting['varible'] == 'v':
-        plt.set_xlabel('Velocity (m/s)')
+        plt.xlabel('Velocity (m/s)')
 
     plt.ylabel('Frequency (Hz)')
     plt.legend()
