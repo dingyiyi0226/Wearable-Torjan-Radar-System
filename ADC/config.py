@@ -41,9 +41,9 @@ import time
 # DRDY_PIN    = 17 / 11                                 #
 # ----------------------------------------------------- #
 
-RST_PIN     = 12
-CS_PIN      = 15
-DRDY_PIN    = 11
+RST_PIN     = 5
+CS_PIN      = 7
+DRDY_PIN    = 3
 # CS_DAC_PIN  = 16
 
 # SPI device, bus = 0, device = 0
@@ -69,7 +69,7 @@ def module_init():
     GPIO.setwarnings(False)
 
     GPIO.setup(RST_PIN, GPIO.OUT)
-    GPIO.setup(CS_DAC_PIN, GPIO.OUT)
+    # GPIO.setup(CS_DAC_PIN, GPIO.OUT)
     GPIO.setup(CS_PIN, GPIO.OUT)
     GPIO.setup(DRDY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     

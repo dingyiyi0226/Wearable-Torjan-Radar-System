@@ -2,6 +2,7 @@ import enum
 import config
 import RPi.GPIO as GPIO
 import time
+import numpy as np
 
 ScanMode = 0
 
@@ -187,7 +188,7 @@ class ADS1256:
             print("ID Read failed   ")
             return -1
 
-        self.ConfigADC(GAIN_E['ADS1256_GAIN_1'], DRATE_E['ADS1256_30000SPS'])
+        self.ConfigADC(GAIN_E['GAIN_1'], DRATE_E['30000SPS'])
         return 0
         
     # ---------------------------------------------------------- # 
@@ -256,14 +257,14 @@ class ADS1256:
 
     def Start_Read_ADC_Data_Continuous(self):
         """ Change to RDATAC mode """
-        self.ADS1256_WaitDRDY()
+        self.WaitDRDY()
         config.digital_write(self.cs_pin, GPIO.LOW)
         config.spi_writebyte([CMD['CMD_RDATAC']])
         config.digital_write(self.cs_pin, GPIO.HIGH)
 
     def Read_ADC_Data_WithoutCommand(self):
         """ Running in RDATAC mode """
-        self.ADS1256_WaitDRDY()
+        self.WaitDRDY()
         config.digital_write(self.cs_pin, GPIO.LOW)
         buf = config.spi_readbytes(3)
         config.digital_write(self.cs_pin, GPIO.HIGH)
@@ -277,6 +278,7 @@ class ADS1256:
         return read
 
     def Read_ADC_Data_Continuous(self, npoints):
+        buf = np.empty(npoints)
         timestamp = time.time()
         for i in range(npoints):
             buf[i] = self.Read_ADC_Data_WithoutCommand()

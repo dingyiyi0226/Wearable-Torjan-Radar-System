@@ -8,7 +8,7 @@ from threading import Thread
 
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.fft import fft, fftshift
+from scipy.fftpack import fft, fftshift
 
 import ADS1256
 # import ADS1256_2 
@@ -36,8 +36,8 @@ def main():
     ADC = ADS1256.ADS1256()
     ADC.init()
     ADC.SetChannal(args.channel)
-    ADC.WriteCmd(ADS1256.CMD['CMD_SYNC'])
-    ADC.WriteCmd(ADS1256.CMD['CMD_WAKEUP'])
+    ADC._writeCmd(ADS1256.CMD['CMD_SYNC'])
+    ADC._writeCmd(ADS1256.CMD['CMD_WAKEUP'])
     ADC.Start_Read_ADC_Data_Continuous()
 
     # ADC2 = ADS1256_2.ADS1256()
@@ -50,7 +50,7 @@ def main():
     try:
         while True:
             # Load data points
-            buf, fs = ADC.Read_ADC_Data_Continuous()
+            buf, fs = ADC.Read_ADC_Data_Continuous(args.number)
             timedelta = args.number / fs 
             print("\r{}".format(fs), end="")
     
