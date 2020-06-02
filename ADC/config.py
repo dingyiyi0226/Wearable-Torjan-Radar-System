@@ -32,11 +32,19 @@ import spidev
 import RPi.GPIO as GPIO
 import time
 
-# Pin definition
-RST_PIN         = 18
-CS_PIN          = 22
-CS_DAC_PIN      = 23
-DRDY_PIN        = 17
+# ----------------------------------------------------- #
+# Pin declaration (BCM / BOARD)                         # 
+# ===================================================== #
+# RST_PIN     = 18 / 12                                 #
+# CS_PIN      = 22 / 15                                 #
+# CS_DAC_PIN  = 23 / 16                                 #
+# DRDY_PIN    = 17 / 11                                 #
+# ----------------------------------------------------- #
+
+RST_PIN     = 12
+CS_PIN      = 15
+DRDY_PIN    = 11
+# CS_DAC_PIN  = 16
 
 # SPI device, bus = 0, device = 0
 SPI = spidev.SpiDev(0, 0)
@@ -55,10 +63,9 @@ def spi_writebyte(data):
     
 def spi_readbytes(reg):
     return SPI.readbytes(reg)
-    
 
 def module_init():
-    GPIO.setmode(GPIO.BCM)
+    GPIO.setmode(GPIO.BOARD)
     GPIO.setwarnings(False)
 
     GPIO.setup(RST_PIN, GPIO.OUT)
