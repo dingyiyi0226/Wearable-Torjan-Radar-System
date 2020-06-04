@@ -44,9 +44,9 @@ class Troy:
         }
 
         DIR_PINS = {
-            'STEP': 3,
-            'DIR' : 5,
-            'ENA' : 7,
+            'STEP': 16,
+            'DIR' : 18,
+            'ENA' : 7,  # no use
         }
 
         ## Modules
@@ -79,6 +79,8 @@ class Troy:
     def setBgSignal(self, overwrite):
         self.highFreqRadar.setBgSig(overwrite)
         # self.lowFreqRadar.setBgSig(overwrite)
+    def resetDirection(self):
+        self.currentDir = 90
 
 
 class FMCWRadar:
@@ -518,8 +520,8 @@ def main():
                     troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
-                # view = SigView(maxFreq=4e3, maxTime=0.1)  # for arduino
-                view = SigView(maxFreq=5e3, maxTime=1)  # for simulation
+                view = SigView(maxFreq=4e3, maxTime=0.25)  # for arduino
+                # view = SigView(maxFreq=5e3, maxTime=1)  # for simulation
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
@@ -584,9 +586,8 @@ def main():
                 except ValueError:
                     print('invalid direction')
 
-            # TODO: A4988 module and FMCWRadar
             elif s.startswith('resetdirection'):
-                pass
+                troy.resetDirection()
 
             # TODO: Temp function
             elif s.startswith('flush'):

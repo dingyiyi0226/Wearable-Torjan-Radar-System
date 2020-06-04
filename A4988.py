@@ -43,7 +43,7 @@ class A4988:
         GPIO.output(self.DIR, clkwise)
 
         for i in range(int(deg*3200/360)):
-            pulse(self.STEP, 5e-3)
+            pulse(self.STEP, 2e-3)
 
         self._stop()
 

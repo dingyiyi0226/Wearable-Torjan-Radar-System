@@ -3,7 +3,7 @@
 #define DATA_SPLIT (DATA_NUM / SEGMENTS)
 
 // Define input pin
-int IN[4] = {A0,A1,A2,A3};
+int IN[4] = {A15,A1,A2,A3};
 
 // Global Variables
 unsigned long sampling_time, timetmp;
@@ -52,7 +52,7 @@ void loop() {
                 
                 // testtime1 = micros();
                 for (int j = 0; j < DATA_SPLIT; j++) {
-                    tmpString += String(signalDatas[i*SEGMENTS+j])+' ';
+                    tmpString += String(signalDatas[i*DATA_SPLIT+j])+' ';
                 }
                 // testtime2 = micros();
                 Serial.print("d ");                           // on Uno
