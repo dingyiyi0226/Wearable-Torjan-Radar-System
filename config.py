@@ -19,5 +19,5 @@ ADF_LOW_PINS = {
 DIR_PINS = {
     'STEP': 16,
     'DIR' : 18,
-    'ENA' : 7,  # no use
+    'ENA' : 7,          # no use
 }

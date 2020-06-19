@@ -1,16 +1,20 @@
-import os
 import glob
+import os
 import sys
 
-def isNone(**kwargs):
-    return { key: value is None for key, value in kwargs.items() }
+from serial.tools import list_ports
+
 
 def port() -> list:
     """ Find the name of the port """
     ports = None
 
+    ## on windows
+    if sys.platform.startswith('win32'):
+        ports = [ p.device for p in list_ports.comports() ]
+
     ## on mac
-    if sys.platform.startswith('darwin'):
+    elif sys.platform.startswith('darwin'):
         ports = glob.glob('/dev/tty.usberial-14*') + glob.glob('/dev/tty.usbmodem14*')
          
     ## on rpi

@@ -3,31 +3,34 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 
+def figKwargs(fig, ax, **kwargs):
+    if 'title' in kwargs:
+        fig.suptitle = kwargs['title']
+
 
 class SigView:
     """ Signal Interface """
 
-    def __init__(self, maxFreq, maxTime, figname='Waveform'):
-
-        self.fig, self.ax = plt.subplots(3,1, num=figname)
+    def __init__(self, maxAmplitude, maxFreq, maxTime, figname='Waveform', **kwargs):
+        
+        self.fig, self.ax = plt.subplots(3, 1, num=figname)
+        figKwargs(self.fig, self.ax, **kwargs)
 
         ## Axis 0: Signal in Time Domain
         self.ax[0].set_xlim(0, maxTime)
-        # self.ax[0].set_ylim(0, 1)
-        self.ax[0].set_ylim(-10, 10)  # for simulation
+        self.ax[0].set_ylim(0, maxAmplitude)
         self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         self.ax[0].set_xlabel('Time (s)')
         
         ## Axis 1: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
-        # self.ax[1].set_ylim(-0.002, 0.5)
-        self.ax[1].set_ylim(-0.002, 0.1)  # for simulation
+        self.ax[1].set_ylim(-0.002, 0.5)
         self.ax[1].set_xlabel('Frequency (Hz)')
 
         ## Axis 2: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
-        # self.ax[2].set_ylim(-0.0002, 0.05)
-        self.ax[2].set_ylim(-0.0002, 0.01)  # for simulation
+        self.ax[2].set_ylim(-0.0002, 0.05)
+        self.ax[2].set_ylim(-0.0002, 0.01)
         self.fig.subplots_adjust(hspace=0.3)
 
         self.timeLine, = self.ax[0].plot([], [])
@@ -85,7 +88,7 @@ class PPIView:
         """ Return elements to matplotlib.Animation.FuncAnimation """
         return self.ppiData,
 
-    def update(self, frame, infoDict):
+    def update(self, frame, infoDict: dict):
         """ Return elements to matplotlib.Animation.FuncAnimation """
 
         directionData = []

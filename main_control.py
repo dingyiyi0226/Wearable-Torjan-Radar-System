@@ -15,8 +15,8 @@ import serial
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-import ADF4158
-from A4988 import A4988
+from module import ADF4158
+from module.A4988 import A4988
 from config import ADF_HIGH_PINS, ADF_LOW_PINS, DIR_PINS
 from RPi import GPIO
 from utils import port
@@ -81,6 +81,7 @@ class ADCConnector(ADC):
     ## Private Function
 
     def _getname(self):
+        """ Get name by sending the NameCommand to Arduino """
         s = ""
         while not s.startswith('n'):
             self._serial.write(b'n ')
@@ -137,6 +138,7 @@ class FMCWRadar:
     def __init__(self, adc: ADC):
 
         ## SIGNAL IDENTITY
+        
         self.setModuleProperty(0, 0, 0, 0)
 
         ## MODULES
@@ -164,7 +166,7 @@ class FMCWRadar:
             'timeSig':      np.zeros(1),
             'timeAxis':     np.zeros(1),
             'freqSig':      np.zeros(1),
-            'freqAxis':     np.zeros(1), 
+            'freqAxis':     np.zeros(1),
             'processedSig': np.zeros(1)
         }
 
@@ -185,6 +187,7 @@ class FMCWRadar:
 
     # TODO
     def getConfig(self):
+        # self._signalModule.getConfig()
         pass
 
     ## RADAR ADJUSTMENT
@@ -208,8 +211,16 @@ class FMCWRadar:
         
         Parameters
         ----------
+        signal : list
+            the signal point in list
+
         time : int
             time record in unit (s)
+
+        Return
+        ------
+        info : {list, None}
+            signal processed result. Return None if not find anything.
         """
 
         self.realTimeSig['timeSig'] = np.array(signal)
@@ -268,17 +279,17 @@ class FMCWRadar:
     def _avgFreqSig(self):
         """ Averaging the FFT signal """
 
-        BW = self._fm * 2                 ## bandwidth of the window
-        winLength = int(BW*self._samplingTime)  ## length = BW/df = BW*T
-        # window = np.ones(winLength)       ## window for averaging the signal
-        window = sg.blackman(winLength)   ## window for averaging the signal
-        # print(winLength)
-        window = window/window.sum()
+        BW = self._fm * 2                       ## bandwidth of the window
+        winLength = int(BW*self._samplingTime)  ## length = BW / df = BW*T
+        # window = np.ones(winLength)           ## window for averaging the signal
+        window = sg.blackman(winLength)         ## window for averaging the signal
+        window = window / window.sum()
 
         self.realTimeSig['processedSig'] = sg.convolve(self.realTimeSig['processedSig'], window, mode='same')
 
     def _findPeaks(self, height, prominence) -> bool:
-        """ Find peaks in processedSig
+        """ 
+        Find peaks in processedSig
         
         Parameters
         ----------
@@ -294,7 +305,7 @@ class FMCWRadar:
         """
 
         self._peakFreqsIdx, _ = sg.find_peaks(self.realTimeSig['processedSig'], height=height, prominence=prominence)
-        # print(self._peakFreqsIdx)
+        
         return len(self._peakFreqsIdx)!=0
 
     def _findFreqPair(self, peakDiff):
@@ -312,8 +323,7 @@ class FMCWRadar:
 
         freqAmplitude = 0
         tmpFreqIndex = 0
-        # print('sortedFreqIndex', sortedFreqIndex)
-
+        
         for freqIndex in sortedFreqIndex:
             # print(freqIndex, self.realTimeSig['freqSig'][freqIndex])
             if freqAmplitude == 0:
@@ -335,11 +345,8 @@ class FMCWRadar:
             self._objectFreqs.append((int(tmpFreqIndex/self._samplingTime), ))
 
     def _calculateInfo(self):
-        """
-        Calculate range and velocity of every object from `_objectFreqs`
-        """
+        """ Calculate range and velocity of every object from `_objectFreqs` """
 
-        # print('calculateInfo', self._objectFreqs)
         objRange = 0.
         objVelo  = 0.
         infoList = []
@@ -376,9 +383,8 @@ class FMCWRadar:
                 # print( (objRange1, objVelo1))
                 # print( (objRange2, objVelo2))
 
-        # print(infoList)
-
         self._objectFreqs.clear()
+
         return infoList
 
     def _freq2Range(self, freq):
@@ -481,8 +487,10 @@ class Troy:
     def availableChannels(self):
         tmp = []
 
-        if self.highFreqRadar is not None:  tmp.append("highFreqRadar")
-        if self.lowFreqRadar is not None:   tmp.append("lowFreqRadar")
+        if self.highFreqRadar is not None:
+            tmp.append(self.highFreqRadar)
+        if self.lowFreqRadar is not None:
+            tmp.append(self.lowFreqRadar)
 
         return tmp
 
@@ -576,7 +584,7 @@ def main():
     now = datetime.today().strftime('%Y%m%d')
 
     ## For Matplotlib
-    views = []
+    views = {}
 
     ## Initialize troy model
 
@@ -589,7 +597,8 @@ def main():
         while True:
             s = input("commands: " + prompt).strip()
 
-            if s == '': pass
+            if s == '': 
+                pass
 
             elif s.startswith('read'):
                 troy.start()
@@ -609,28 +618,39 @@ def main():
                     troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
-                # Open SigView
+                # Open SigView (Oscillscope)
 
-                view = SigView(channels=troy.availableChannels, maxAmplitude=1, maxFreq=4e3, maxTime=0.25)  # for arduino
-                views.append(view)
-                animation = FuncAnimation(view.fig, view.update,
-                    init_func=view.init, interval=200, blit=True,
-                    fargs=(troy.highFreqRadar.realTimeSig,))
-                view.figShow()
+                for channel in troy.availableChannels:
+                    # Reject repeated views
+                    if str(channel) in views:
+                        continue
+
+                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, figname='Waveform: {}'.format(str(channel)))
+                    animation = FuncAnimation(view.fig, view.update,
+                        init_func=view.init, interval=200, blit=True,
+                        fargs=(channel.realTimeSig, ))
+                    view.figShow()
+
+                    # Record down the view
+                    views[str(channel)] = (view, animation)
 
             elif s.startswith('ppi'):
-                # Open PPIVieq
+                # Open PPIView (Object Inferencing)
+
+                if 'PPI' in views:
+                    continue
 
                 view = PPIView(maxR=25)
-                views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
-                    fargs=(troy.highData,))
-
+                    fargs=({**troy.highData, **troy.lowData}, ))
                 view.figShow()
 
+                # Record down the view
+                views['PPI'] = (view, animation)
+
             elif s.startswith('close'):
-                for view in views: plt.close(view.fig)
+                for view, _ in views.values(): plt.close(view.fig)
                 views.clear()
 
             elif s.startswith('save'):
@@ -672,11 +692,12 @@ def main():
                 if troy.highFreqRadar.backgroundSig is None:
                     print('Background signal not exist')
                     continue
+
                 view = SigView(maxFreq=5e3, maxTime=1, figname='Bg Waveform')  # for arduino
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
-                    fargs=(troy.highFreqRadar.backgroundSig,))
+                    fargs=(troy.highFreqRadar.backgroundSig, ))
                 view.figShow()
 
             elif s.startswith('q'):
@@ -687,6 +708,9 @@ def main():
 
     except KeyboardInterrupt:
         pass
+
+    except Exception as e:
+        print(e)
 
     finally:
         troy.close()

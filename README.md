@@ -2,7 +2,18 @@
 
 ## 2020 IEEE AP-S Student Design Contest
 
+![Demo Video]()
+
 ## How to use
+
+1. View and edit the pin setting
+    ```
+    vim config.py
+    ```
+2. Run main process
+    ```
+    python main_control.py
+    ```
 
 ## Execute Environment
 

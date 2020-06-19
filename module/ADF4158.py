@@ -164,15 +164,15 @@ class ADF4158:
         """ Readback words from MUXOUT """
         word = 0
 
-        GPIO.output(LE, True)
-        pulseHigh(TXDATA)
+        GPIO.output(self.LE, True)
+        pulseHigh(self.TXDATA)
 
         for _ in range(36, -1, -1):
-            GPIO.output(W_CLK, True)
-            word = word << 1 + GPIO.input(MUXOUT)
-            GPIO.output(W_CLK, False)
+            GPIO.output(self.W_CLK, True)
+            word = word << 1 + GPIO.input(self.MUXOUT)
+            GPIO.output(self.W_CLK, False)
 
-        GPIO.output(LE, False)
+        GPIO.output(self.LE, False)
 
         return word
 
@@ -183,9 +183,12 @@ class ADF4158:
     # @verbose
     def sendWord(self, word, clk=Clock.RISING_EDGE):
         """
-        :param word: 32-bits information
+        Parameters
+        ----------
+        word: 
+            32-bits information
 
-        :param clk: { Clock.RISING_EDGE, Clock.FALLING_EDGE } optional
+        clk: { Clock.RISING_EDGE, Clock.FALLING_EDGE } optional
         """
         
         # Raise Clock after setup DATA 
@@ -256,15 +259,19 @@ class ADF4158:
         
     def setRampAttribute(self, clk2=None, dev=None, devOffset=None, steps=None):
         """
-        :param clk2: CLK_2 divider value at range [0, 4095]
+        Parameters
+        ----------
+        clk2: 
+            CLK_2 divider value at range [0, 4095]
 
-        :param dev: Deviation words at range [-32768, 32767]
+        dev: 
+            Deviation words at range [-32768, 32767]
 
-        :param devOffset: Deviation offset at range [0, 9]
+        devOffset: 
+            Deviation offset at range [0, 9]
 
-        :param steps: Step words at range [0, 1048575]
-
-        :return patterns
+        steps: 
+            Step words at range [0, 1048575]
         """
 
         if clk2 is not None:
@@ -285,7 +292,10 @@ class ADF4158:
 
     def setPumpSetting(self, current):
         """
-        :param current: must be the times of 0.3125 and at range [0.3125, 16 x 0.3125 = 5.0]
+        Parameters 
+        ----------
+        current: 
+            must be the times of 0.3125 and at range [0.3125, 16 x 0.3125 = 5.0]
         """
         assert((current / 0.3125) == (current // 0.3125))
 
@@ -306,9 +316,13 @@ class ADF4158:
         f_{PFD} = \text{REF_{IN}} \times ( \frac{(1 + D)} { R \times (1 + T) })
         $$
 
-        :param freq: Center frequency
+        Parameters
+        ----------
+        freq: 
+            Center frequency
 
-        :param ref: Reference clock frequency
+        ref: 
+            Reference clock frequency
         """
         frac = int((freq % ref) / ref * (1 << 25))
         frac_MSB = (frac >> 13)
@@ -330,11 +344,13 @@ class ADF4158:
         - Steps: As much as possible to form a approx. linear wave
         - DevOffset: As low as possible
 
-        :param centerFreq:
+        Parameters
+        ----------
+        centerFreq : float
+        
+        bandwidth : float
 
-        :param bandwidth:
-
-        :param tm:
+        tm: float
         """
 
         f_res = self.FREQ_PFD / (1 << 25)
