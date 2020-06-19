@@ -8,6 +8,7 @@ import warnings
 import argparse
 from collections import namedtuple
 from datetime import datetime
+from abc import ABC, abstractmethod
 
 import numpy as np
 import scipy.signal as sg
@@ -312,6 +313,88 @@ class FMCWRadar:
     def _freq2Velo(self, freq):
         return freq / self._freq * 3e8 / 2
 
+
+class ADC(ABC):
+    @abstractmethod
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def read(self):
+        pass
+
+class ADCConnector(ADC):
+    def __init__(self, portName, baudrate=115200, timeout=3):
+        super(ADC, self).__init__()
+        self._readable = False
+        self._serial = serial.Serial(portName, baudrate, timeout)
+        self._buffer = None
+        self._event  = threading.Event()
+        self._thread = threading.Thread(target=self._read, daemon=True)
+
+    ## Public Function
+
+    def start(self):
+        self._event.set()
+        self._thread.start()
+    
+    def stop(self):
+        pass
+
+    def getValue(self):
+        
+        pass
+
+    ## Private Function
+
+    def _read(self):
+        """ Read signal at anytime in other thread """
+
+        signal = []
+        isValid = True
+        samplingTime = 0
+
+        while self._event.is_set():
+
+            self._serial.write(b'r ')
+            # print(ser.readline().decode().strip())
+
+            try:
+                s = self._serial.readline().decode().strip()
+        
+                if s.startswith('i'):
+                    isValid = True
+                    signal.clear()
+
+                elif s.startswith('d'):
+                    # print('readSignal ',s[2:])
+                    try:
+                        signal.extend([float(i) / 1024 for i in s[2:].split()])
+
+                    except ValueError:
+                        print('Value Error: ', s[2:])
+                        isValid = False
+
+                elif s.startswith('e'):
+                    # print('endReadSignal ', s[2:])
+                    try:
+                        samplingTime = float(s[2:]) * 1e-6
+                        
+                    except ValueError:
+                        print('Value Error: ', s[2:])
+                        isValid = False
+
+                    if isValid:
+                        self._buffer = (samplingTime, signal)
+
+                else:
+                    print('\nRead:', s)
+
+            except UnicodeDecodeError:
+                print('UnicodeDecodeError')
+
+            time.sleep(0.001)
+
 def read(ser, troy: Troy, readEvent: threading.Event):
     """ Read signal at anytime in other thread """
 
@@ -456,8 +539,18 @@ def main():
     ## For file writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
 
+    ## Testing Function 
+
+    adc = ADCConnector(port())
+    adc.start()
+
+    while True:
+        while not adc._readable: pass
+        ts, value = adc.getValue()
+
     ## Initialize troy model
 
+    """
     troy = Troy()
 
     ## Start reading in another thread but block by readEvent
@@ -544,7 +637,7 @@ def main():
                 views.clear()
 
             elif s.startswith('save'):
-                """ Save time domain signal """
+                ## Save time domain signal
                 
                 distance = input('Distances: ').strip()
                 comments = input('Comments: ').strip()
@@ -639,6 +732,7 @@ def main():
 
     finally:
         print('Quit main')
+    """
 
     # ser.close()
 
