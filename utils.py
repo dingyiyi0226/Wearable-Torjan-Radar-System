@@ -1,33 +1,20 @@
 import os
+import glob
 import sys
 
-def port() -> str:
+def port() -> list:
     """ Find the name of the port """
+    ports = None
 
-    try:
-        ## on mac
-        if sys.platform.startswith('darwin'):
-            ports = os.listdir('/dev/')
-            
-            for i in ports:
-                if i.startswith('tty.usbserial-14') or i.startswith('tty.usbmodem14'):
-                    port = i
-                    break
-            
-            port = '/dev/' + port
-            
-        ## on rpi
-        if (sys.platform.startswith('linux')):
-            ports = os.listdir('/dev/')
-            
-            for i in ports:
-                if i.startswith('ttyUSB') or i.startswith('ttyACM'):
-                    port = i
-                    break
-
-            port = '/dev/' + port
-
-    except UnboundLocalError:
-        sys.exit('Cannot open port')
-
-    return port
+    ## on mac
+    if sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.usberial-14*') + glob.glob('/dev/tty.usbmodem14')
+         
+    ## on rpi
+    elif (sys.platform.startswith('linux')):
+        ports = glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*')
+      
+    return ports
+ 
+if __name__ == "__main__":
+    print(port())

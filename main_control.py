@@ -19,6 +19,7 @@ from matplotlib.animation import FuncAnimation
 import ADF4158
 from A4988 import A4988
 from view import PPIView, SigView
+from utils import *
 
 class Troy:
     
@@ -53,8 +54,16 @@ class Troy:
         ## Modules
 
         self.rotateMotor = A4988(DIR_PINS)
-        self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=100e6, tm=8e-3, pins=ADF_HIGH_PINS)
-        # self.lowFreqRadar  = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
+ 
+        try:
+            self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=100e6, tm=8e-3, pins=ADF_HIGH_PINS)
+        except:
+            pass
+
+        try:
+            self.lowFreqRadar = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
+        except:
+            pass
 
         ## Data
 
@@ -62,14 +71,30 @@ class Troy:
         self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
         self.highData = {}
 
+    ## Public Function
 
-    def setSignal(self, signal, time, isHigh):
+    def start(self) -> bool:
+        if hasattr(self, 'highFreqRadar'): 
+            self.highFreqRadar.start()
+        if hasattr(self, 'lowFreqRadar'): 
+            self.lowFreqRadar.start() 
 
-        if isHigh:
-            self.highData[self.currentDir] = self.highFreqRadar.setSignal(signal, time)
-        # else:
-        #     self.lowData[self.currentDir] = self.lowFreqRadar.setSignal(signal, time)
+    def close(self):
+        if hasattr(self, 'highFreqRadar'): 
+            self.highFreqRadar.start()
+        if hasattr(self, 'lowFreqRadar'): 
+            self.lowFreqRadar.start()        
 
+    def save(self, highFreqFname, lowFreqFname) -> bool:
+        if os.path.exists(fname): print("File exists. Overwrite it.")
+
+        with open(os.path.join(fname), 'w') as file:
+            writer = csv.writer(file)
+            writer.writerow(['X', 'Sig', '', 'Increment'])
+            writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
+            
+            for ind, i in enumerate(troy.highFreqRadar.realTimeSig['timeSig']):
+                writer.writerow([ind, i])
 
     def setDirection(self, direction):
 
@@ -77,17 +102,19 @@ class Troy:
         self.rotateMotor.spin(abs(deltaDir), deltaDir>0)
         self.currentDir = direction
 
-    def setBgSignal(self, overwrite):
-        self.highFreqRadar.setBgSig(overwrite)
-        # self.lowFreqRadar.setBgSig(overwrite)
+    def setBgSignal(self, overwrite: bool):
+        if hasattr(self, 'highFreqRadar'):  self.highFreqRadar.setBgSig(overwrite)
+        if hasattr(self, 'lowFreqRadar'):   self.lowFreqRadar.setBgSig(overwrite)
+
     def resetDirection(self):
         self.currentDir = 90
 
+    ## Private Function
 
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
 
-    def __init__(self, freq, BW, tm, pins):
+    def __init__(self, portName, freq, BW, tm, pins):
 
         ## SIGNAL IDENTITY
 
@@ -101,6 +128,7 @@ class FMCWRadar:
         ## SIGNAL GENERATOR MODULE
 
         self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(pins['W_CLK'], pins['DATA'], pins['LE'], pins['TXDATA'], pins['MUXOUT']))
+        self._adc = ADCConnector(portName)
 
         ## SIGNAL PROCESSING
 
@@ -117,7 +145,14 @@ class FMCWRadar:
 
     ## PUBLIC FUNCTION
 
+    # TODO
+    def start(self):
+        pass
+
     ## RADAR INFO
+
+    def getName(self):
+        return self._adc.name
 
     # TODO
     def showConfig(self):
@@ -320,32 +355,49 @@ class ADC(ABC):
         super().__init__()
 
     @abstractmethod
-    def read(self):
+    def getValue(self):
         pass
 
 class ADCConnector(ADC):
     def __init__(self, portName, baudrate=115200, timeout=3):
         super(ADC, self).__init__()
-        self._readable = False
-        self._serial = serial.Serial(portName, baudrate, timeout)
-        self._buffer = None
+        self._serial = serial.Serial(portName, baudrate=baudrate, timeout=timeout)
+        self._buffer = []
+
+        self.readable = False
+        self.name = ""
+        self._getname()
+
+
         self._event  = threading.Event()
+        self._event.clear()
         self._thread = threading.Thread(target=self._read, daemon=True)
+        self._thread.start()        
 
     ## Public Function
 
     def start(self):
         self._event.set()
-        self._thread.start()
     
     def stop(self):
-        pass
+        self._event.clear()
 
     def getValue(self):
-        
-        pass
+        self.readable = False
+        return self._buffer
+
+    def disconnect(self):
+        self._serial.close()
 
     ## Private Function
+
+    def _getname(self):
+        s = ""
+        while not s.startswith('n'):
+            self._serial.write(b'n ')
+            s = self._serial.readline().decode().strip()
+        self.name = s[1:]
+        print(self.name)
 
     def _read(self):
         """ Read signal at anytime in other thread """
@@ -354,10 +406,9 @@ class ADCConnector(ADC):
         isValid = True
         samplingTime = 0
 
-        while self._event.is_set():
-
+        while True:
+            self._event.wait()
             self._serial.write(b'r ')
-            # print(ser.readline().decode().strip())
 
             try:
                 s = self._serial.readline().decode().strip()
@@ -367,25 +418,23 @@ class ADCConnector(ADC):
                     signal.clear()
 
                 elif s.startswith('d'):
-                    # print('readSignal ',s[2:])
                     try:
                         signal.extend([float(i) / 1024 for i in s[2:].split()])
 
                     except ValueError:
-                        print('Value Error: ', s[2:])
                         isValid = False
 
                 elif s.startswith('e'):
-                    # print('endReadSignal ', s[2:])
                     try:
                         samplingTime = float(s[2:]) * 1e-6
                         
                     except ValueError:
-                        print('Value Error: ', s[2:])
                         isValid = False
 
                     if isValid:
                         self._buffer = (samplingTime, signal)
+                        self.readable = True
+                        print(samplingTime, self.name)
 
                 else:
                     print('\nRead:', s)
@@ -498,33 +547,6 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
         i+=1
     # print('exit thread')
 
-def port() -> str:
-    """ Find the name of the port """
-
-    try:
-        ## on mac
-        if sys.platform.startswith('darwin'):
-            ports = os.listdir('/dev/')
-            for i in ports:
-                if i.startswith('tty.usbserial-14') or i.startswith('tty.usbmodem14'):
-                    port = i
-                    break;
-            port = '/dev/' + port
-            
-        ## on rpi
-        if (sys.platform.startswith('linux')):
-            ports = os.listdir('/dev/')
-            for i in ports:
-                if i.startswith('ttyUSB') or i.startswith('ttyACM'):
-                    port = i
-                    break;
-            port = '/dev/' + port
-
-    except UnboundLocalError:
-        sys.exit('Cannot open port')
-
-    return port
-
 def main():
     ## Main function initialization arguments
     parser = argparse.ArgumentParser()
@@ -539,36 +561,9 @@ def main():
     ## For file writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
 
-    ## Testing Function 
-
-    adc = ADCConnector(port())
-    adc.start()
-
-    while True:
-        while not adc._readable: pass
-        ts, value = adc.getValue()
-
     ## Initialize troy model
 
-    """
     troy = Troy()
-
-    ## Start reading in another thread but block by readEvent
-    readEvent  = threading.Event()
-
-    if args.simulation is None:
-        ## Port Connecting
-        ser = serial.Serial(port(), baudrate=115200, timeout=3)
-        print('Successfully open port: ', ser)
-        readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
-    else:
-        readThread = threading.Thread(target=readSimSignal, daemon=True,
-            kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
-        
-    readEvent.set()
-    readThread.start()
-    print('Reading Signal')
-
     views = []
 
     try:
@@ -579,37 +574,20 @@ def main():
             if s == '': pass
 
             elif s.startswith('read'):
-                if readEvent.is_set():
-                    print('Has been reading signal')
-                else:
-                    print('Reading Signal')
-
-                    readEvent = threading.Event()
-
-                    if args.simulation is None:
-                        readThread = threading.Thread(target=read, args=[ser, troy, readEvent], daemon=True)
-                    else:
-                        readThread = threading.Thread(target=readSimSignal, daemon=True,
-                            kwargs={'filename': args.simulation, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
-
-                    readEvent.set()
-                    readThread.start()
+                for adc in adcs: adc.start()
 
             elif s.startswith('stop'):
-                if not readEvent.is_set():
-                    print('Not been reading signal')
-                else:
-                    readEvent.clear()
-                    print('Stop Reading Signal')
+                for adc in adcs: adc.stop()
 
             elif s.startswith('setbg'):
                 # if s contains one argument only, overwrite background sig
                 # otherwise, take average of previous background sig
 
-                if len(s.split())==1:
+                if len(s.split()) == 1:
                     print('Reset Background Signal')
                     troy.setBgSignal(overwrite=True)
                 else:
+                    print('Take Average on Background Signal')
                     troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
@@ -632,44 +610,32 @@ def main():
                 view.figShow()
 
             elif s.startswith('close'):
-                for view in views:
-                    plt.close(view.fig)
+                for view in views: plt.close(view.fig)
                 views.clear()
 
             elif s.startswith('save'):
                 ## Save time domain signal
                 
-                distance = input('Distances: ').strip()
-                comments = input('Comments: ').strip()
+                if len(s.split()) == 1:                
+                    distance = input('Distances: ').strip()
+                else:
+                    distance = s.split()[1]
 
                 path = './rawdata/arduino/{}'.format(now)
-                if not os.path.exists(path):
-                    os.makedirs(path)
-
-                if os.path.exists(os.path.join(path, distance + '.csv')):
-                    print("File exists. Overwrite it.")
-            
-                with open(os.path.join(path, distance + '.csv'), 'w') as file:
-                    writer = csv.writer(file)
-                    writer.writerow(['X', 'Sig', '', 'Increment'])
-                    writer.writerow(['', '', '', str(troy.highFreqRadar.realTimeSig['timeAxis'][1])])
-                    
-                    for ind, i in enumerate(troy.highFreqRadar.realTimeSig['timeSig']):
-                        writer.writerow([ind, i])
-
+                if not os.path.exists(path): os.makedirs(path)
+                troy.save(os.path.join(path, distance + '.csv'))
                 print("File is saved at: {}".format(os.path.join(path, distance + '.csv')))
 
             # TODO: ADF4158 module
             # SetFreq with receive 1 argument: frequency
             elif s.startswith('setfreq'):
-                pass
+                troy.setFreq()
 
             # TODO: ADF4158 module
             elif s.startswith('setModulation'):
-                pass
+                troy.setModulation()
 
             elif s.startswith('setdirection'):
-
                 direction = input('Direction: ').strip()
 
                 try:
@@ -701,26 +667,6 @@ def main():
                     fargs=(troy.highFreqRadar.backgroundSig,))
                 view.figShow()
 
-            elif s.startswith('file'):
-
-                filename = s.split()[-1]
-                filename = os.path.join('./rawdata', filename)
-                if not os.path.exists(filename):
-                    print('file {} not exists'.format(filename))
-                    continue
-
-                print('Stop current reading thread')
-
-                readEvent.clear()
-                readEvent = threading.Event()
-
-                readThread = threading.Thread(target=readSimSignal, daemon=True,
-                    kwargs={'filename': filename, 'samFreq': 1.6e4, 'samTime': 1, 'troy': troy, 'readEvent': readEvent})
-                
-                readEvent.set()
-                readThread.start()
-                print('Reading Signal')
-
             elif s.startswith('q'):
                 break
 
@@ -731,10 +677,8 @@ def main():
         pass
 
     finally:
+        troy.close()
         print('Quit main')
-    """
-
-    # ser.close()
 
 if __name__ == '__main__':
     main()
