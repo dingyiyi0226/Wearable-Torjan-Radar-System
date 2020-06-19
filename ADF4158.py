@@ -351,7 +351,19 @@ class ADF4158:
         self.setCenterFrequency(int(centerFreq))
         self.setRampAttribute(dev=dev, devOffset=devOffset, steps=steps)
 
-def set5800Default(module):
+# ------------------------------------------------------ #
+# Utility function                                       #
+# ------------------------------------------------------ #
+
+def set5800Default(module=None, pins=None):
+    assert((module is None) or isinstance(module, ADF4158))
+    assert(pins is None or module is None)
+    assert(pins is not None or module is not None)
+
+    if module is None: 
+        assert(pins is not None)
+        module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
+
     module.initBitPatterns()
 
     module.setRamp(True)
@@ -363,8 +375,16 @@ def set5800Default(module):
 
     return module
 
-def set915Default(module):
-    module.initBitPatterns(module)
+def set915Default(module=None, pins=None):
+    assert((module is None) or isinstance(module, ADF4158))
+    assert(pins is None or module is None)
+    assert(pins is not None or module is not None)
+
+    if module is None: 
+        assert(pins is not None)
+        module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
+
+    module.initBitPatterns()
 
     module.setRamp(True)
     module.setRampMode(RampMode.CONT_TRIANGULAR)
@@ -388,19 +408,3 @@ def singleRamp5800Default(module):
     module.setMuxout(Muxout.THREE_STATE)
 
     return module
-
-def main():
-    # GND  = 6      # T3
-    W_CLK  = 12     # T4
-    DATA   = 16     # T5
-    LE     = 18     # T6
-    TXDATA = 13     # T16
-    MUXOUT = 15     # T8
-    
-    module = singleRamp5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
-    # module = set5800Default(ADF4158(W_CLK, DATA, LE, TXDATA, MUXOUT))
-    for value in module.patterns.values():
-        module.sendWord(value)
-        
-if __name__ == "__main__":
-    main()

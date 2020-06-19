@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 import random
@@ -5,10 +6,8 @@ import sys
 import threading
 import time
 import warnings
-import argparse
-from collections import namedtuple
-from datetime import datetime
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 import numpy as np
 import scipy.signal as sg
@@ -18,117 +17,138 @@ from matplotlib.animation import FuncAnimation
 
 import ADF4158
 from A4988 import A4988
+from config import ADF_HIGH_PINS, ADF_LOW_PINS, DIR_PINS
+from RPi import GPIO
+from utils import port
 from view import PPIView, SigView
-from utils import *
 
-class Troy:
-    
+
+def loadArduinoADC() -> list:
+    """ Check ADC Exists. """
+    pairs = {}
+
+    for adc in [ ADCConnector(p) for p in port() ]:
+        if adc.name == "5.8":
+            pairs["highFreqRadar"] = adc
+        if adc.name == "915":
+            pairs["lowFreqRadar"] = adc    
+
+    return pairs
+
+class ADC(ABC):
+    @abstractmethod
     def __init__(self):
+        super().__init__()
 
-        ## Pins
+class ADCConnector(ADC):
+    """ ADC implemented by Arduino and pySerial. """
+    def __init__(self, portName, baudrate=115200, timeout=3):
+        super().__init__()
 
-        ADF_HIGH_PINS = {
-            # 'GND': 6,        # T3
-            'W_CLK': 12,       # T4
-            'DATA' : 16,       # T5
-            'LE'   : 18,       # T6
-            'TXDATA' : 13,     # T16
-            'MUXOUT' : 15,     # T8
-        }
+        ## PHYSICAL MODULE
 
-        ADF_LOW_PINS = {
-            # 'GND': 60,        # T3
-            'W_CLK': 120,       # T4
-            'DATA' : 160,       # T5
-            'LE'   : 180,       # T6
-            'TXDATA' : 130,     # T16
-            'MUXOUT' : 150,     # T8
-        }
+        self._serial = serial.Serial(portName, baudrate=baudrate, timeout=timeout)
 
-        DIR_PINS = {
-            'STEP': 16,
-            'DIR' : 18,
-            'ENA' : 7,  # no use
-        }
+        ## ATTRIBUTE
 
-        ## Modules
+        self.name = ""
+        self._manager = None
+        self._getname()
 
-        self.rotateMotor = A4988(DIR_PINS)
- 
-        try:
-            self.highFreqRadar = FMCWRadar(freq=5.8e9 , BW=100e6, tm=8e-3, pins=ADF_HIGH_PINS)
-        except:
-            pass
+        ## THREADING
 
-        try:
-            self.lowFreqRadar = FMCWRadar(freq=915e6 , BW=15e6, tm=614e-6, pins=ADF_LOW_PINS)
-        except:
-            pass
-
-        ## Data
-
-        self.currentDir = 90
-        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
-        self.highData = {}
+        self._event  = threading.Event()
+        self._event.clear()
+        self._thread = threading.Thread(target=self._read, daemon=True)
+        self._thread.start()    
 
     ## Public Function
 
-    def start(self) -> bool:
-        if hasattr(self, 'highFreqRadar'): 
-            self.highFreqRadar.start()
-        if hasattr(self, 'lowFreqRadar'): 
-            self.lowFreqRadar.start() 
+    def setManager(self, manager):
+        assert(self._manager is not None)
+        self._manager = manager
 
-    def close(self):
-        if hasattr(self, 'highFreqRadar'): 
-            self.highFreqRadar.start()
-        if hasattr(self, 'lowFreqRadar'): 
-            self.lowFreqRadar.start()        
+    def start(self):
+        self._serial.flush()
+        self._event.set()
+    
+    def stop(self):
+        self._event.clear()
 
-    def save(self, highFreqFname, lowFreqFname) -> bool:
-        if os.path.exists(fname): print("File exists. Overwrite it.")
-
-        with open(os.path.join(fname), 'w') as file:
-            writer = csv.writer(file)
-            writer.writerow(['X', 'Sig', '', 'Increment'])
-            writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
-            
-            for ind, i in enumerate(troy.highFreqRadar.realTimeSig['timeSig']):
-                writer.writerow([ind, i])
-
-    def setDirection(self, direction):
-
-        deltaDir = direction - self.currentDir
-        self.rotateMotor.spin(abs(deltaDir), deltaDir>0)
-        self.currentDir = direction
-
-    def setBgSignal(self, overwrite: bool):
-        if hasattr(self, 'highFreqRadar'):  self.highFreqRadar.setBgSig(overwrite)
-        if hasattr(self, 'lowFreqRadar'):   self.lowFreqRadar.setBgSig(overwrite)
-
-    def resetDirection(self):
-        self.currentDir = 90
+    def disconnect(self):
+        self._serial.close()
 
     ## Private Function
+
+    def _getname(self):
+        s = ""
+        while not s.startswith('n'):
+            self._serial.write(b'n ')
+            s = self._serial.readline().decode().strip()
+        self.name = s[1:]
+
+    def _read(self):
+        """ Read signal at anytime in other thread """
+
+        signal = []
+        isValid = True
+        samplingTime = 0
+
+        while True:
+            self._event.wait()
+            self._serial.write(b'r ')
+
+            try:
+                s = self._serial.readline().decode().strip()
+        
+                if s.startswith('i'):
+                    isValid = True
+                    signal.clear()
+
+                elif s.startswith('d'):
+                    try:
+                        signal.extend([float(i) / 1024 for i in s[2:].split()])
+
+                    except ValueError:
+                        isValid = False
+
+                elif s.startswith('e'):
+                    try:
+                        samplingTime = float(s[2:]) * 1e-6
+                        
+                    except ValueError:
+                        isValid = False
+
+                    # Push the data to self._manager
+                    if isValid and self._manager is not None:
+                        self._manager.loadData(signal, samplingTime)
+
+                else:
+                    print('\nRead:', s)
+
+            except UnicodeDecodeError:
+                print('ADC._read: UnicodeDecodeError')
+
+            time.sleep(0.001)
 
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
 
-    def __init__(self, portName, freq, BW, tm, pins):
+    def __init__(self, adc: ADC):
 
         ## SIGNAL IDENTITY
+        self.setModuleProperty(0, 0, 0, 0)
 
-        self._freq = freq        ## the operation frequency
-        self._slope = BW/tm      ## the slope of transmitting signal (Hz/s)
-        self._BW = BW
-        self._tm = tm
-        self._fm = 1/tm
-        self._distanceOffset = 1 * 2.24 ** 0.5
+        ## MODULES
 
-        ## SIGNAL GENERATOR MODULE
-
-        self._signalModule = ADF4158.set5800Default(ADF4158.ADF4158(pins['W_CLK'], pins['DATA'], pins['LE'], pins['TXDATA'], pins['MUXOUT']))
-        self._adc = ADCConnector(portName)
+        self._adc = adc
+        self._adc._manager = self
+        if self._adc.name == "5.8":
+            self._signalModule = ADF4158.set5800Default(pins=ADF_HIGH_PINS)
+            self.setModuleProperty(5.8e9, 1e8, 8e-3, 1 * 2.24)
+        if self._adc.name == "915":
+            self._signalModule = ADF4158.set915Default(pins=ADF_LOW_PINS)
+            self.setModuleProperty(915e6, 1.5e7, 3.3e-5, 1 * 2.24)
 
         ## SIGNAL PROCESSING
 
@@ -140,33 +160,49 @@ class FMCWRadar:
                                  ## the tuple contain only one freq iff the object is stationary
 
         self.backgroundSig = None
-        self.realTimeSig = {'timeSig':np.zeros(1),'timeAxis':np.zeros(1),
-                            'freqSig':np.zeros(1),'freqAxis':np.zeros(1), 'processedSig':np.zeros(1)}
+        self.realTimeSig = {
+            'timeSig':      np.zeros(1),
+            'timeAxis':     np.zeros(1),
+            'freqSig':      np.zeros(1),
+            'freqAxis':     np.zeros(1), 
+            'processedSig': np.zeros(1)
+        }
 
     ## PUBLIC FUNCTION
 
-    # TODO
     def start(self):
-        pass
+        self._adc.start()
 
-    ## RADAR INFO
+    def stop(self):
+        self._adc.stop()
 
-    def getName(self):
+    def close(self):
+        self._adc.disconnect()
+
+    @property
+    def name(self):
         return self._adc.name
 
     # TODO
-    def showConfig(self):
+    def getConfig(self):
         pass
 
     ## RADAR ADJUSTMENT
 
-    # TODO
-    def setModuleProperty(self, tm):
-        pass
+    def setModuleProperty(self, freq, BW, tm, distanceOffset):
+        self._freq  = freq                              ## the operation frequency
+        self._slope = np.nan if tm == 0 else BW / tm    ## the slope of transmitting signal (Hz/s)
+        self._BW    = BW
+        self._tm    = tm
+        self._fm    = np.nan if tm == 0 else 1 / tm
+        self._distanceOffset = 1 * 2.24 ** 0.5
+
+        # TODO
+        # self._signalModule.setRampAttribute()
 
     ## SIGNAL ACCESSING FUCNTION
 
-    def setSignal(self, signal, time):
+    def loadData(self, signal: list, time: float):
         """
         Update signal and some variable at the end of the signal and start signal processing
         
@@ -175,8 +211,6 @@ class FMCWRadar:
         time : int
             time record in unit (s)
         """
-
-        if not signal: return
 
         self.realTimeSig['timeSig'] = np.array(signal)
         self._signalLength = self.realTimeSig['timeSig'].shape[0]
@@ -197,6 +231,11 @@ class FMCWRadar:
                 self.backgroundSig[key] = 0.75 * self.backgroundSig[key] + 0.25 * sig
 
     ## PRIVATE FUNCTION
+
+    ## ATTRIBUTE
+
+    def __str__(self):
+        return ("(FMCWRadar, {})".format(self.name))
 
     ## SIGNAL PROCESSING FUNCTIONS
 
@@ -348,151 +387,127 @@ class FMCWRadar:
     def _freq2Velo(self, freq):
         return freq / self._freq * 3e8 / 2
 
-
-class ADC(ABC):
-    @abstractmethod
+class Troy:
+    
     def __init__(self):
-        super().__init__()
 
-    @abstractmethod
-    def getValue(self):
-        pass
+        ## Modules
 
-class ADCConnector(ADC):
-    def __init__(self, portName, baudrate=115200, timeout=3):
-        super(ADC, self).__init__()
-        self._serial = serial.Serial(portName, baudrate=baudrate, timeout=timeout)
-        self._buffer = []
+        self.rotateMotor = A4988(DIR_PINS)
+        self.lowFreqRadar = None
+        self.highFreqRadar = None
 
-        self.readable = False
-        self.name = ""
-        self._getname()
+        adcs = loadArduinoADC()
+        if "highFreqRadar" in adcs: self.highFreqRadar = FMCWRadar(adcs["highFreqRadar"]) 
+        if "lowFreqRadar" in adcs:  self.lowFreqRadar = FMCWRadar(adcs["lowFreqRadar"])
 
+        ## Data
 
-        self._event  = threading.Event()
-        self._event.clear()
-        self._thread = threading.Thread(target=self._read, daemon=True)
-        self._thread.start()        
+        self.currentDir = 90
+        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
+        self.highData = {}
 
     ## Public Function
 
-    def start(self):
-        self._event.set()
-    
-    def stop(self):
-        self._event.clear()
+    ## ACTION FUNCTION
 
-    def getValue(self):
-        self.readable = False
-        return self._buffer
+    def start(self) -> bool:
+        if self.lowFreqRadar is not None: 
+            print("> Load 915 MHz ADC")
+            self.lowFreqRadar.start() 
+        if self.highFreqRadar is not None:
+            print("> Load 5.8 GHz ADC")
+            self.highFreqRadar.start()
 
-    def disconnect(self):
-        self._serial.close()
+    def stop(self) -> bool:
+        """ Pause Method """
+        if self.lowFreqRadar is not None: 
+            print("> Load 915 MHz ADC Paused!. ")
+            self.lowFreqRadar.stop() 
+        if self.highFreqRadar is not None: 
+            print("> Load 5.8 GHz ADC Paused!. ")
+            self.highFreqRadar.stop()
+
+    def close(self):
+        """ Release all occupied pins and processes. """
+        if self.lowFreqRadar is not None: 
+            self.lowFreqRadar.close() 
+        if self.highFreqRadar is not None: 
+            self.highFreqRadar.close()
+
+    def save(self, highFreqFname, lowFreqFname) -> bool:
+        # TODO
+        if self.highFreqRadar is not None:
+            if os.path.exists(highFreqFname): 
+                print("File {} exists. Overwrite it.".format(highFreqFname))
+            
+            with open(os.path.join(highFreqFname), 'w') as file:
+                writer = csv.writer(file)
+                writer.writerow(['X', 'Sig', '', 'Increment'])
+                writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
+                
+                for ind, i in enumerate(self.highFreqRadar.realTimeSig['timeSig']):
+                    writer.writerow([ind, i])
+
+        if self.lowFreqRadar is not None:
+            if os.path.exists(lowFreqFname):
+                print("File {} exists. Overwrite it.".format(lowFreqFname))
+
+            with open(os.path.join(lowFreqFname), 'w') as file:
+                writer = csv.writer(file)
+                writer.writerow(['X', 'Sig', '', 'Increment'])
+                writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
+                
+                for ind, i in enumerate(self.highFreqRadar.realTimeSig['timeSig']):
+                    writer.writerow([ind, i])
+
+    def setDirection(self, direction: int):
+        deltaDir = direction - self.currentDir
+        self.rotateMotor.spin(abs(deltaDir), deltaDir > 0)
+        self.currentDir = direction
+
+    def resetDirection(self, direction=90):
+        self.currentDir = direction
+
+    def flush(self):
+        if self.lowFreqRadar is not None:
+            self.lowFreqRadar._adc._serial.flush()
+        if self.highFreqRadar is not None: 
+            self.highFreqRadar._adc._serial.flush()
+
+    ## ATTRIBUTE FUNCTION
+
+    @property
+    def availableChannels(self):
+        tmp = []
+
+        if self.highFreqRadar is not None:  tmp.append("highFreqRadar")
+        if self.lowFreqRadar is not None:   tmp.append("lowFreqRadar")
+
+        return tmp
+
+    def getInfo(self):
+        print("========================================")
+        print("| Current Directory: ", self.currentDir)
+        print("========================================")
+        print("| Current Config: ")
+        print("| ", self.lowFreqRadar)
+        print("| ", self.highFreqRadar)
+        print("| Detected Object: ")
+        print("| ", self.lowData)
+        print("| ", self.highData)
+        print("========================================")
+
+    ## SIGNAL PROCESSING RELATED FUCNTION
+
+    def setBgSignal(self, overwrite: bool):
+        if self.highFreqRadar is not None:
+            self.highFreqRadar.setBgSig(overwrite)
+        if self.lowFreqRadar is not None:
+            self.lowFreqRadar.setBgSig(overwrite)
 
     ## Private Function
 
-    def _getname(self):
-        s = ""
-        while not s.startswith('n'):
-            self._serial.write(b'n ')
-            s = self._serial.readline().decode().strip()
-        self.name = s[1:]
-        print(self.name)
-
-    def _read(self):
-        """ Read signal at anytime in other thread """
-
-        signal = []
-        isValid = True
-        samplingTime = 0
-
-        while True:
-            self._event.wait()
-            self._serial.write(b'r ')
-
-            try:
-                s = self._serial.readline().decode().strip()
-        
-                if s.startswith('i'):
-                    isValid = True
-                    signal.clear()
-
-                elif s.startswith('d'):
-                    try:
-                        signal.extend([float(i) / 1024 for i in s[2:].split()])
-
-                    except ValueError:
-                        isValid = False
-
-                elif s.startswith('e'):
-                    try:
-                        samplingTime = float(s[2:]) * 1e-6
-                        
-                    except ValueError:
-                        isValid = False
-
-                    if isValid:
-                        self._buffer = (samplingTime, signal)
-                        self.readable = True
-                        print(samplingTime, self.name)
-
-                else:
-                    print('\nRead:', s)
-
-            except UnicodeDecodeError:
-                print('UnicodeDecodeError')
-
-            time.sleep(0.001)
-
-def read(ser, troy: Troy, readEvent: threading.Event):
-    """ Read signal at anytime in other thread """
-
-    signal = []
-    isValid = True
-    samplingTime = 0
-
-    while readEvent.is_set():
-        # readEvent.wait()
-        ## maybe have to reset buffer
-
-        ser.write(b'r ')
-        # print(ser.readline().decode().strip())
-
-        try:
-            s = ser.readline().decode().strip()
-    
-            if s.startswith('i'):
-                isValid = True
-                signal.clear()
-
-            elif s.startswith('d'):
-                # print('readSignal ',s[2:])
-                try:
-                    signal.extend([float(i)/1024 for i in s[2:].split()])
-
-                except ValueError:
-                    print('Value Error: ', s[2:])
-                    isValid = False
-
-            elif s.startswith('e'):
-                # print('endReadSignal ', s[2:])
-                try:
-                    samplingTime = float(s[2:]) * 1e-6
-                    
-                except ValueError:
-                    print('Value Error: ', s[2:])
-                    isValid = False
-
-                if isValid:
-                    troy.setSignal(signal, samplingTime, isHigh=True)
-
-            else:
-                print('\nRead:', s)
-
-        except UnicodeDecodeError:
-            print('UnicodeDecodeError')
-
-        time.sleep(0.001)
 
 def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.Event):
     """
@@ -545,7 +560,6 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
             time.sleep(0.001)
 
         i+=1
-    # print('exit thread')
 
 def main():
     ## Main function initialization arguments
@@ -558,30 +572,34 @@ def main():
         if not os.path.exists(args.simulation):
             sys.exit('Argument --simulation ({}) wrong, exit'.format(args.simulation))
 
-    ## For file writing (Command: Save)
+    ## For File Writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
+
+    ## For Matplotlib
+    views = []
 
     ## Initialize troy model
 
     troy = Troy()
-    views = []
+    troy.getInfo()
 
     try:
         prompt = ''
+
         while True:
             s = input("commands: " + prompt).strip()
 
             if s == '': pass
 
             elif s.startswith('read'):
-                for adc in adcs: adc.start()
+                troy.start()
 
             elif s.startswith('stop'):
-                for adc in adcs: adc.stop()
+                troy.stop()
 
             elif s.startswith('setbg'):
-                # if s contains one argument only, overwrite background sig
-                # otherwise, take average of previous background sig
+                # If s contains one argument only, overwrite background signal.
+                # Otherwise, take average of previous background signal
 
                 if len(s.split()) == 1:
                     print('Reset Background Signal')
@@ -591,8 +609,9 @@ def main():
                     troy.setBgSignal(overwrite=False)
 
             elif s.startswith('sig'):
-                view = SigView(maxFreq=4e3, maxTime=0.25)  # for arduino
-                # view = SigView(maxFreq=5e3, maxTime=1)  # for simulation
+                # Open SigView
+
+                view = SigView(channels=troy.availableChannels, maxAmplitude=1, maxFreq=4e3, maxTime=0.25)  # for arduino
                 views.append(view)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
@@ -600,9 +619,10 @@ def main():
                 view.figShow()
 
             elif s.startswith('ppi'):
+                # Open PPIVieq
+
                 view = PPIView(maxR=25)
                 views.append(view)
-
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
                     fargs=(troy.highData,))
@@ -616,27 +636,21 @@ def main():
             elif s.startswith('save'):
                 ## Save time domain signal
                 
-                if len(s.split()) == 1:                
+                if len(s.split()) == 1:
                     distance = input('Distances: ').strip()
                 else:
                     distance = s.split()[1]
 
                 path = './rawdata/arduino/{}'.format(now)
                 if not os.path.exists(path): os.makedirs(path)
-                troy.save(os.path.join(path, distance + '.csv'))
-                print("File is saved at: {}".format(os.path.join(path, distance + '.csv')))
-
-            # TODO: ADF4158 module
-            # SetFreq with receive 1 argument: frequency
-            elif s.startswith('setfreq'):
-                troy.setFreq()
-
-            # TODO: ADF4158 module
-            elif s.startswith('setModulation'):
-                troy.setModulation()
+                troy.save(os.path.join(path, distance + '-high.csv'), os.path.join(path, distance + '-low.csv'))
+                print(" > File is saved at: {}".format(os.path.join(path, distance + '.csv')))
 
             elif s.startswith('setdirection'):
-                direction = input('Direction: ').strip()
+                if len(s.split() == 1):
+                    direction = input('Direction: ').strip()
+                else:
+                    direction = s.split()[1]
 
                 try:
                     direction = float(direction)
@@ -648,13 +662,11 @@ def main():
             elif s.startswith('resetdirection'):
                 troy.resetDirection()
 
-            # TODO: Temp function
             elif s.startswith('flush'):
-                ser.reset_input_buffer()
+                troy.flush()
 
             elif s.startswith('info'):
-                print('high freq info:', troy.highData)
-                print('low freq info:', troy.lowData)
+                troy.getInfo()
 
             elif s.startswith('bgsig'):
                 if troy.highFreqRadar.backgroundSig is None:
@@ -678,6 +690,7 @@ def main():
 
     finally:
         troy.close()
+        GPIO.cleanup()
         print('Quit main')
 
 if __name__ == '__main__':
