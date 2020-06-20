@@ -64,7 +64,7 @@ loop()
 
         }
         else if (rs == "n") 
-            { Serial.println("915"); }
+            { Serial.println("n915"); }
         else 
             { Serial.print("Unknown Command: "); Serial.println(rs); }
 
