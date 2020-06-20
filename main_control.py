@@ -74,6 +74,10 @@ class FMCWRadar:
             'processedSig': np.zeros(1)
         }
 
+        ## PUSH CONTAINER
+
+        self._container = None
+
     ## PUBLIC FUNCTION
 
     def start(self):
@@ -105,7 +109,6 @@ class FMCWRadar:
             
             for ind, i in enumerate(self.realTimeSig['timeSig']):
                 writer.writerow([ind, i])
-
 
     ## RADAR ADJUSTMENT
 
@@ -147,8 +150,13 @@ class FMCWRadar:
         self.realTimeSig['timeAxis'] = np.arange(self._signalLength) * self._samplingTime / self._signalLength
         self.realTimeSig['freqAxis'] = np.arange(self._signalLength//2) / self._samplingTime
 
-        return self._signalProcessing()
+        info = self._signalProcessing()
+        self._container.clear()
+        if isinstance(info, dict):
+            self._container.update(info)
 
+    def clearBgSig(self):
+        self.backgroundSig = None
 
     def setBgSig(self, overwrite):
         if overwrite:
@@ -314,6 +322,12 @@ class Troy:
     
     def __init__(self):
 
+        ## Data
+
+        self.currentDir = 90
+        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
+        self.highData = {}
+
         ## Modules
 
         self.rotateMotor = A4988(DIR_PINS)
@@ -321,42 +335,33 @@ class Troy:
         self.highFreqRadar = None
 
         adcs = loadArduinoADC()
-        if "highFreqRadar" in adcs: self.highFreqRadar = FMCWRadar(adcs["highFreqRadar"]) 
-        if "lowFreqRadar" in adcs:  self.lowFreqRadar = FMCWRadar(adcs["lowFreqRadar"])
-
-        ## Data
-
-        self.currentDir = 90
-        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
-        self.highData = {}
+        if "highFreqRadar" in adcs: 
+            self.highFreqRadar = FMCWRadar(adcs["highFreqRadar"])
+            self.highFreqRadar._container = self.highData
+        if "lowFreqRadar" in adcs: 
+            self.lowFreqRadar = FMCWRadar(adcs["lowFreqRadar"])
+            self.lowFreqRadar._container = self.lowData
 
     ## Public Function
 
     ## ACTION FUNCTION
 
     def start(self):
-        if self.lowFreqRadar is not None: 
-            print("> Load 915 MHz ADC")
-            self.lowFreqRadar.start() 
-        if self.highFreqRadar is not None:
-            print("> Load 5.8 GHz ADC")
-            self.highFreqRadar.start()
+        """ Start Method """
+        for radar in self.availableChannels:
+            print("> Load {} ADC. ".format(radar.name))
+            radar.start()
 
     def stop(self):
         """ Pause Method """
-        if self.lowFreqRadar is not None: 
-            print("> Load 915 MHz ADC Paused!. ")
-            self.lowFreqRadar.stop() 
-        if self.highFreqRadar is not None: 
-            print("> Load 5.8 GHz ADC Paused!. ")
-            self.highFreqRadar.stop()
+        for radar in self.availableChannels:
+            print("> Load {} ADC Paused!. ".format(radar.name))
+            radar.stop()
 
     def close(self):
         """ Release all occupied pins and processes. """
-        if self.lowFreqRadar is not None: 
-            self.lowFreqRadar.close() 
-        if self.highFreqRadar is not None: 
-            self.highFreqRadar.close()
+        for radar in self.availableChannels:
+            radar.close()
 
     # TODO
     def save(self, highFreqFname, lowFreqFname) -> bool:
@@ -370,15 +375,14 @@ class Troy:
         deltaDir = direction - self.currentDir
         self.rotateMotor.spin(abs(deltaDir), deltaDir > 0)
         self.currentDir = direction
+        self.clearBgSignal()
 
     def resetDirection(self, direction=90):
         self.currentDir = direction
 
     def flush(self):
-        if self.lowFreqRadar is not None:
-            self.lowFreqRadar._adc._serial.flush()
-        if self.highFreqRadar is not None: 
-            self.highFreqRadar._adc._serial.flush()
+        for radar in self.availableChannels:
+            radar._adc._serial.flush()
 
     ## ATTRIBUTE FUNCTION
 
@@ -405,15 +409,22 @@ class Troy:
         print("| ", self.highData)
         print("========================================")
 
+    def tracking(self):
+        """ Keep update the info to stream. """
+        try:
+            while True: pass
+        except KeyboardInterrupt as e:
+            print()
+
     ## SIGNAL PROCESSING RELATED FUCNTION
 
-    def setBgSignal(self, overwrite: bool):
-        if self.highFreqRadar is not None:
-            self.highFreqRadar.setBgSig(overwrite)
-        if self.lowFreqRadar is not None:
-            self.lowFreqRadar.setBgSig(overwrite)
+    def clearBgSignal(self):
+        for radar in self.availableChannels:
+            radar.clearBgSig()
 
-    ## Private Function
+    def setBgSignal(self, overwrite: bool):
+        for radar in self.availableChannels:
+            radar.setBgSig(overwrite)
 
 
 def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.Event):
@@ -468,6 +479,7 @@ def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.E
 
         i+=1
 
+
 def main():
     ## Main function initialization arguments
     parser = argparse.ArgumentParser()
@@ -516,6 +528,13 @@ def main():
                     print('Take Average on Background Signal')
                     troy.setBgSignal(overwrite=False)
 
+            elif s.startswith('clearbg'):
+                # If s contains one argument only, overwrite background signal.
+                # Otherwise, take average of previous background signal
+
+                print('Clear Background Signal')
+                troy.resetBgSignal()
+                
             elif s.startswith('sig'):
                 # Open SigView (Oscillscope)
 
@@ -566,10 +585,7 @@ def main():
                 print(" > File is saved! Check at: {}".format(path))
 
             elif s.startswith('setdirection'):
-                if len(s.split() == 1):
-                    direction = input('Direction: ').strip()
-                else:
-                    direction = s.split()[1]
+                direction = input('Direction: ').strip() if len(s.split()) == 1 else s.split()[1]
 
                 try:
                     direction = float(direction)
@@ -587,17 +603,25 @@ def main():
             elif s.startswith('info'):
                 troy.getInfo()
 
-            elif s.startswith('bgsig'):
-                if troy.highFreqRadar.backgroundSig is None:
-                    print('Background signal not exist')
-                    continue
+            elif s.startswith('track'):
+                troy.tracking()
 
-                view = SigView(maxFreq=5e3, maxTime=1, figname='Bg Waveform')  # for arduino
-                views.append(view)
-                animation = FuncAnimation(view.fig, view.update,
-                    init_func=view.init, interval=200, blit=True,
-                    fargs=(troy.highFreqRadar.backgroundSig, ))
-                view.figShow()
+            elif s.startswith('bgsig'):
+                # Open Background SigView (Oscillscope)
+
+                for channel in troy.availableChannels:
+                    # Reject repeated views
+                    if str(channel) + '-bg' in views:
+                        continue
+
+                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, figname='Background: {}'.format(str(channel)))
+                    animation = FuncAnimation(view.fig, view.update,
+                        init_func=view.init, interval=200, blit=True,
+                        fargs=(channel.backgroundSig, ))
+                    view.figShow()
+
+                    # Record down the view
+                    views[str(channel) + '-bg'] = (view, animation)
 
             elif s.startswith('q'):
                 break
