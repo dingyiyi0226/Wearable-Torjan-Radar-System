@@ -15,9 +15,10 @@ import serial
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+from adc import ADC, ADCConnector
+from config import ADF_HIGH_PINS, ADF_LOW_PINS, DIR_PINS
 from module import ADF4158
 from module.A4988 import A4988
-from config import ADF_HIGH_PINS, ADF_LOW_PINS, DIR_PINS
 from RPi import GPIO
 from utils import port
 from view import PPIView, SigView
@@ -34,103 +35,6 @@ def loadArduinoADC() -> list:
             pairs["lowFreqRadar"] = adc    
 
     return pairs
-
-class ADC(ABC):
-    @abstractmethod
-    def __init__(self):
-        super().__init__()
-
-class ADCConnector(ADC):
-    """ ADC implemented by Arduino and pySerial. """
-    def __init__(self, portName, baudrate=115200, timeout=3):
-        super().__init__()
-
-        ## PHYSICAL MODULE
-
-        self._serial = serial.Serial(portName, baudrate=baudrate, timeout=timeout)
-
-        ## ATTRIBUTE
-
-        self.name = ""
-        self._manager = None
-        self._getname()
-
-        ## THREADING
-
-        self._event  = threading.Event()
-        self._event.clear()
-        self._thread = threading.Thread(target=self._read, daemon=True)
-        self._thread.start()    
-
-    ## Public Function
-
-    def setManager(self, manager):
-        assert(self._manager is not None)
-        self._manager = manager
-
-    def start(self):
-        self._serial.flush()
-        self._event.set()
-    
-    def stop(self):
-        self._event.clear()
-
-    def disconnect(self):
-        self._serial.close()
-
-    ## Private Function
-
-    def _getname(self):
-        """ Get name by sending the NameCommand to Arduino """
-        s = ""
-        while not s.startswith('n'):
-            self._serial.write(b'n ')
-            s = self._serial.readline().decode().strip()
-        self.name = s[1:]
-
-    def _read(self):
-        """ Read signal at anytime in other thread """
-
-        signal = []
-        isValid = True
-        samplingTime = 0
-
-        while True:
-            self._event.wait()
-            self._serial.write(b'r ')
-
-            try:
-                s = self._serial.readline().decode().strip()
-        
-                if s.startswith('i'):
-                    isValid = True
-                    signal.clear()
-
-                elif s.startswith('d'):
-                    try:
-                        signal.extend([float(i) / 1024 for i in s[2:].split()])
-
-                    except ValueError:
-                        isValid = False
-
-                elif s.startswith('e'):
-                    try:
-                        samplingTime = float(s[2:]) * 1e-6
-                        
-                    except ValueError:
-                        isValid = False
-
-                    # Push the data to self._manager
-                    if isValid and self._manager is not None:
-                        self._manager.loadData(signal, samplingTime)
-
-                else:
-                    print('\nRead:', s)
-
-            except UnicodeDecodeError:
-                print('ADC._read: UnicodeDecodeError')
-
-            time.sleep(0.001)
 
 class FMCWRadar:
     """ FMCW Radar model for each freqency """
@@ -186,9 +90,22 @@ class FMCWRadar:
         return self._adc.name
 
     # TODO
-    def getConfig(self):
-        # self._signalModule.getConfig()
-        pass
+    def getConfig(self) -> dict:
+        # return self._signalModule.getConfig()
+        return {}
+
+    def save(self, fname):
+        if os.path.exists(fname): 
+            print("File {} exists. Overwrite it.".format(fname))
+        
+        with open(os.path.join(fname), 'w') as file:
+            writer = csv.writer(file)
+            writer.writerow(['X', 'Sig', '', 'Increment'])
+            writer.writerow(['', '', '', str(self.realTimeSig['timeAxis'][1])])
+            
+            for ind, i in enumerate(self.realTimeSig['timeSig']):
+                writer.writerow([ind, i])
+
 
     ## RADAR ADJUSTMENT
 
@@ -417,7 +334,7 @@ class Troy:
 
     ## ACTION FUNCTION
 
-    def start(self) -> bool:
+    def start(self):
         if self.lowFreqRadar is not None: 
             print("> Load 915 MHz ADC")
             self.lowFreqRadar.start() 
@@ -425,7 +342,7 @@ class Troy:
             print("> Load 5.8 GHz ADC")
             self.highFreqRadar.start()
 
-    def stop(self) -> bool:
+    def stop(self):
         """ Pause Method """
         if self.lowFreqRadar is not None: 
             print("> Load 915 MHz ADC Paused!. ")
@@ -441,31 +358,13 @@ class Troy:
         if self.highFreqRadar is not None: 
             self.highFreqRadar.close()
 
+    # TODO
     def save(self, highFreqFname, lowFreqFname) -> bool:
-        # TODO
         if self.highFreqRadar is not None:
-            if os.path.exists(highFreqFname): 
-                print("File {} exists. Overwrite it.".format(highFreqFname))
-            
-            with open(os.path.join(highFreqFname), 'w') as file:
-                writer = csv.writer(file)
-                writer.writerow(['X', 'Sig', '', 'Increment'])
-                writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
-                
-                for ind, i in enumerate(self.highFreqRadar.realTimeSig['timeSig']):
-                    writer.writerow([ind, i])
+            self.highFreqRadar.save(highFreqFname)
 
         if self.lowFreqRadar is not None:
-            if os.path.exists(lowFreqFname):
-                print("File {} exists. Overwrite it.".format(lowFreqFname))
-
-            with open(os.path.join(lowFreqFname), 'w') as file:
-                writer = csv.writer(file)
-                writer.writerow(['X', 'Sig', '', 'Increment'])
-                writer.writerow(['', '', '', str(self.highFreqRadar.realTimeSig['timeAxis'][1])])
-                
-                for ind, i in enumerate(self.highFreqRadar.realTimeSig['timeSig']):
-                    writer.writerow([ind, i])
+            self.lowFreqRadar.save(lowFreqFname)
 
     def setDirection(self, direction: int):
         deltaDir = direction - self.currentDir
@@ -656,15 +555,15 @@ def main():
             elif s.startswith('save'):
                 ## Save time domain signal
                 
-                if len(s.split()) == 1:
-                    distance = input('Distances: ').strip()
-                else:
-                    distance = s.split()[1]
+                distance = input('Distances: ').strip() if len(s.split()) == 1 else s.split()[1]
 
                 path = './rawdata/arduino/{}'.format(now)
                 if not os.path.exists(path): os.makedirs(path)
-                troy.save(os.path.join(path, distance + '-high.csv'), os.path.join(path, distance + '-low.csv'))
-                print(" > File is saved at: {}".format(os.path.join(path, distance + '.csv')))
+                troy.save(
+                    os.path.join(path, 'high-' + distance + '.csv'), 
+                    os.path.join(path, 'low-' + distance + '.csv')
+                )
+                print(" > File is saved! Check at: {}".format(path))
 
             elif s.startswith('setdirection'):
                 if len(s.split() == 1):

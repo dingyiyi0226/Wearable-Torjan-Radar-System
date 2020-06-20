@@ -1,7 +1,13 @@
 """
-  Filename      [ controller.py ]
+  Filename      [ ADF4158.py ]
   PackageName   [ Radar ]
   Synopsis      [ ADF4158 Signal Generator Control Module ]
+
+  Datasheet:
+    >>> UG-123
+        https://www.analog.com/media/en/technical-documentation/user-guides/UG-123.pdf
+    >>> ADF-4158
+        https://www.analog.com/media/en/technical-documentation/data-sheets/ADF4158.pdf
 """
 
 from collections import OrderedDict
@@ -100,11 +106,14 @@ def verbose(func):
 
     return wrapper
 
-def pulseHigh(pin):
+def pulseHigh(pin: int):
     """ 
-    Send a pulse 
+    Send a short digital pulse 
     
-    :param pin: number of pin to send a pulse
+    Parameters
+    ----------
+    pin: int
+        number of pin to send a pulse
     """
     GPIO.output(pin, True)
     GPIO.output(pin, False)
@@ -114,31 +123,15 @@ class ADF4158:
     DEV_MAX  = (1 << 15)
     REF_IN   = 1e7          # 10 MHz
 
-    register_pins = set()   # Static sets for maintaining used pins
-
     def __init__(self, CLK, DATA, LE, TXDATA, MUXOUT):
-        # ------------------------------------------------------ #
-        # Define GPIO Pins                                       #
-        # ------------------------------------------------------ #
-
-        # self.GND  = 6      # T3
+        ## Define GPIO Pins
         self.W_CLK  = CLK    # T4
         self.DATA   = DATA   # T5
         self.LE     = LE     # T6
         self.TXDATA = TXDATA # T16
         self.MUXOUT = MUXOUT # T8
 
-        # PINs Registration
-        for pin in (self.W_CLK, self.DATA, self.LE, self.TXDATA, self.MUXOUT):
-            if pin in self.register_pins:
-                raise ValueError("Repeat PINs in ADF4158")
-
-            self.register_pins.add(pin)
-
-        # ------------------------------------------------------ #
-        # Define ADF4158.Constant                                #
-        # ------------------------------------------------------ #
-
+        ## Define ADF4158.Constant
         self.REF_DOUB = 0    # in [0,  1]
         self.REF_COUN = 1    # in [1, 32]
         self.REF_DIVD = 0    # in [0,  1]
@@ -147,23 +140,42 @@ class ADF4158:
 
         self.FREQ_PFD = int(self.REF_IN * (1 + self.REF_DOUB) / (self.REF_COUN * (1 + self.REF_DIVD)))
 
+        ## Define Logic Constant
+        self.patterns = OrderedDict()
+        self.isSet = False
         self.reset()
+
+    # ------------------------------------------------------ #
+    # Helper Function                                        #
+    # ------------------------------------------------------ #
 
     # ------------------------------------------------------ #
     # Private Function                                       #
     # ------------------------------------------------------ #
 
-
-    def setReadyToWrite(self):
+    def _setReadyToWrite(self):
         GPIO.output(self.W_CLK, False)
         GPIO.output(self.DATA, False)
         GPIO.output(self.LE, False)
 
-    # TODO
-    def readWord(self):
-        """ Readback words from MUXOUT """
+    def _readData(self, mux: Muxout) -> int:
+        """ 
+        Readback words from MUXOUT 
+        
+        Return
+        ------
+        word : int
+            The bit loaded from ADF4158
+        """
+        assert(mux, Muxout)
+
         word = 0
 
+        # Select Register
+        self.setMuxout(mux)
+        self.sendConfig()
+
+        # Read Register
         GPIO.output(self.LE, True)
         pulseHigh(self.TXDATA)
 
@@ -176,12 +188,7 @@ class ADF4158:
 
         return word
 
-    # ------------------------------------------------------ #
-    # Public Function                                        #
-    # ------------------------------------------------------ #
-
-    # @verbose
-    def sendWord(self, word, clk=Clock.RISING_EDGE):
+    def _sendWord(self, word, clk=Clock.RISING_EDGE):
         """
         Parameters
         ----------
@@ -208,10 +215,17 @@ class ADF4158:
 
         return True
 
-    def initBitPatterns(self):
-        """ Initialize bit patterns """
-        self.patterns = OrderedDict()
+    def _initGPIOPins(self):
+        """ GPIO Pins initialization for ADF4158 config. """
+        for pin in (self.W_CLK, self.LE, self.DATA):
+            GPIO.setup(pin, GPIO.OUT)
+        
+        for pin in (self.TXDATA, self.MUXOUT, ):
+            GPIO.setup(pin, GPIO.IN)
 
+    def _initBitPatterns(self):
+        """ Initialize bit patterns """
+        self.patterns.clear()
         self.patterns['PIN7']  = 0x00000007
         self.patterns['PIN6A'] = 0x00000006
         self.patterns['PIN6B'] = 0x00800006
@@ -223,38 +237,42 @@ class ADF4158:
         self.patterns['PIN1']  = 0x00000001
         self.patterns['PIN0']  = 0x01220000
 
-    def initGPIOPins(self):
-        """ GPIO Pins initialization for ADF4158 config. """
-        for pin in (self.W_CLK, self.LE, self.DATA):
-            GPIO.setup(pin, GPIO.OUT)
-        
-        for pin in (self.TXDATA, self.MUXOUT, ):
-            GPIO.setup(pin, GPIO.IN)
+    # ------------------------------------------------------ #
+    # Public Function                                        #
+    # ------------------------------------------------------ #
+
+    def sendConfig(self):
+        self.isSet = True
+        for value in self.patterns.values():
+            self._sendWord(value)
+
+    # TODO
+    def getConfig(self):
+        pass
 
     def reset(self):
         """ 
         Initial ADF4851 Signal Generator
 
-        :return patterns: the initial patterns wrote in ADF4158
-
-        .. References:
+        References
+        ----------
             (Datasheet p.25)
         """
         
-        self.initGPIOPins()
-        self.setReadyToWrite()
-        self.initBitPatterns()
-
-        for value in self.patterns.values():
-            self.sendWord(value)
+        self._initGPIOPins()
+        self._setReadyToWrite()
+        self._initBitPatterns()
+        self.sendConfig()
 
     def setRamp(self, status: bool):
         self.patterns['PIN0'] = overwrite(self.patterns['PIN0'], 31, 31, int(status))
         
     def setRampMode(self, mode: RampMode):
+        assert(isinstance(mode, RampMode))
         self.patterns['PIN3'] = overwrite(self.patterns['PIN3'], 11, 10, int(mode))
         
     def setMuxout(self, mode: Muxout):
+        assert(isinstance(mode, Muxout))
         self.patterns['PIN0'] = overwrite(self.patterns['PIN0'], 30, 27, int(mode))
         
     def setRampAttribute(self, clk2=None, dev=None, devOffset=None, steps=None):
@@ -318,10 +336,10 @@ class ADF4158:
 
         Parameters
         ----------
-        freq: 
+        freq: int
             Center frequency
 
-        ref: 
+        ref: float
             Reference clock frequency
         """
         frac = int((freq % ref) / ref * (1 << 25))
@@ -335,7 +353,7 @@ class ADF4158:
         prescaler = Prescaler.PRESCALER89 if freq > 3e9 else Prescaler.PRESCALER45
         self.patterns['PIN2'] = overwrite(self.patterns['PIN2'], 22, 22, prescaler)
 
-    def setModulationInterval(self, centerFreq, bandwidth, tm):
+    def setModulationInterval(self, centerFreq: float, bandwidth: float, tm: float):
         """
         To determined the word of **DEV**, **DEV_OFFSET**.
 
@@ -347,10 +365,13 @@ class ADF4158:
         Parameters
         ----------
         centerFreq : float
-        
+            Operation center frequency
+
         bandwidth : float
+            Sweep Bandwidth
 
         tm: float
+            Modulation Time
         """
 
         f_res = self.FREQ_PFD / (1 << 25)
@@ -380,7 +401,7 @@ def set5800Default(module=None, pins=None):
         assert(pins is not None)
         module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
 
-    module.initBitPatterns()
+    module._initBitPatterns()
 
     module.setRamp(True)
     module.setRampMode(RampMode.CONT_TRIANGULAR)
@@ -400,7 +421,7 @@ def set915Default(module=None, pins=None):
         assert(pins is not None)
         module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
 
-    module.initBitPatterns()
+    module._initBitPatterns()
 
     module.setRamp(True)
     module.setRampMode(RampMode.CONT_TRIANGULAR)
@@ -412,7 +433,7 @@ def set915Default(module=None, pins=None):
     return module
 
 def singleRamp5800Default(module):
-    module.initBitPatterns()
+    module._initBitPatterns()
 
     module.setRamp(True)
     module.setRampMode(RampMode.SING_SAWTOOTH)

@@ -15,7 +15,7 @@ def port() -> list:
 
     ## on mac
     elif sys.platform.startswith('darwin'):
-        ports = glob.glob('/dev/tty.usberial-14*') + glob.glob('/dev/tty.usbmodem14*')
+        ports = glob.glob('/dev/tty.usbserial-14*') + glob.glob('/dev/tty.usbmodem14*')
          
     ## on rpi
     elif (sys.platform.startswith('linux')):

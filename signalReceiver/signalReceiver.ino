@@ -3,7 +3,7 @@
 #define DATA_SPLIT (DATA_NUM / SEGMENTS)
 
 // Define input pin
-int IN[4] = {A15,A1,A2,A3};
+int IN = A1;
 
 // Global Variables
 unsigned long sampling_time, timetmp;
@@ -12,32 +12,32 @@ String tmpString = "", rs;
 
 // unsigned long testtime1, testtime2;
 
-void setup() {
-
+void 
+setup() 
+{
     Serial.begin(115200);
     Serial.setTimeout(100);                 // for serial.readstring
     // analogReference(INTERNAL2V56);       // options: DEFAULT, INTERNAL1V1, INTERNAL2V56, EXTERNAL
 
-    Serial.println("init"); // I don't know why i need this line but i have to.
+    Serial.println("init");                 // I don't know why i need this line but i have to.
 }
 
 
-void loop() {
-
-    // Serial.println("ddd");
-    
-    if(Serial.available()){
+void 
+loop() 
+{
+    if (Serial.available()) 
+    {
         rs = Serial.readStringUntil(' ');
-        // Serial.println(rs);
-
-        if(rs=="r"){
+        
+        if (rs == "r") 
+        {
 
             // --------- Sampling datas --------- //
 
             timetmp = micros();
-            for(int i=0; i < DATA_NUM; i++){
-                signalDatas[i] = analogRead(IN[0]);
-            }
+            for(int i=0; i < DATA_NUM; i++)
+                { signalDatas[i] = analogRead(IN); }
             sampling_time = micros() - timetmp;
 
             // ---------------------------------- //
@@ -47,19 +47,15 @@ void loop() {
 
             Serial.print("i\n");                              // start transmitting
 
-            for (int i = 0; i < SEGMENTS; ++i) {
+            for (int i = 0; i < SEGMENTS; ++i) 
+            {
                 tmpString = "";
                 
-                // testtime1 = micros();
-                for (int j = 0; j < DATA_SPLIT; j++) {
-                    tmpString += String(signalDatas[i*DATA_SPLIT+j])+' ';
-                }
-                // testtime2 = micros();
+                for (int j = 0; j < DATA_SPLIT; j++) 
+                    { tmpString += String(signalDatas[i*DATA_SPLIT+j]) + ' '; }
+
                 Serial.print("d ");                           // on Uno
                 Serial.println(tmpString);
-                // Serial.println(micros()-testtime2);
-                // Serial.println(testtime2-testtime1);
-
             }
 
             Serial.print("e ");
@@ -67,10 +63,10 @@ void loop() {
             // ---------------------------------- //
 
         }
-        else{
-            // Serial.print("nooo ");
-            // Serial.println(rs);
-        }
+        else if (rs == "n") 
+            { Serial.println("915"); }
+        else 
+            { Serial.print("Unknown Command: "); Serial.println(rs); }
 
     }
 }
