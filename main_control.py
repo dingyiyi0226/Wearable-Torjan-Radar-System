@@ -524,7 +524,8 @@ def main():
                     if str(channel) in views:
                         continue
 
-                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, figname='Waveform: {}'.format(str(channel)))
+                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, 
+                        figname='Waveform: {}'.format(str(channel)))
                     animation = FuncAnimation(view.fig, view.update,
                         init_func=view.init, interval=200, blit=True,
                         fargs=(channel.realTimeSig, ))

@@ -24,13 +24,13 @@ class SigView:
         
         ## Axis 1: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
-        self.ax[1].set_ylim(-0.002, 0.5)
+        self.ax[1].set_ylim(-0.002, 0.02)
         self.ax[1].set_xlabel('Frequency (Hz)')
 
         ## Axis 2: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
-        self.ax[2].set_ylim(-0.0002, 0.05)
-        self.ax[2].set_ylim(-0.0002, 0.01)
+        # self.ax[2].set_ylim(-0.0002, 0.05)
+        self.ax[2].set_ylim(-0.0002, 0.02)
         self.fig.subplots_adjust(hspace=0.3)
 
         self.timeLine, = self.ax[0].plot([], [])
