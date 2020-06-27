@@ -5,6 +5,7 @@ import os
 from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import random as rd
 import scipy.signal as sg
@@ -183,6 +184,7 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
         window=sg.blackman(avgLength)
         for i in range(1, freqDataNp.shape[1]):
             freqDataNp[:, i] = sg.oaconvolve(freqDataNp[:, i], window/window.sum(), mode='same')
+    # freqDataNp = np.clip(freqDataNp ,0, 5e-7)
 
     return freqDataNp, 1 / fs, maxFreq, maxFreqIndex, minFreqDiff
 
@@ -624,6 +626,67 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
 
     return
 
+def plot3DMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting, roundup, removeBG, normalizeFreq, avgFreq):
+    """ Plot FFT signal at each distance in heatmap (using NonUniformImage) """
+
+    ## Const
+
+    maxFreqIndex = int(maxFreq / minFreqDiff)
+
+    ## map config
+
+    YTICKCNT = 16
+    CMAP = 'gray'
+    INTERP = 'nearest'
+
+    ## Generate Figure
+
+    # fig, ax = plt.subplots(1,2, num='Figure', figsize=(4,2), constrained_layout=True)
+    fig = plt.figure()
+    ax = Axes3D(fig)
+
+
+    title = today
+    if removeBG:
+        title += ' remove background'
+    if normalizeFreq:
+        title += ' normalizeFreq'
+    if avgFreq:
+        title += ' avgFreq'
+
+    fig.suptitle(title)
+
+    if removeBG:
+        freqDataNp[:, 0]=0
+
+    ## Figure 1: Experiment
+
+    # im = NonUniformImage(ax[0], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
+    print(np.shape(variableList))
+    print(np.arange(maxFreqIndex).shape)
+    print(freqDataNp[:maxFreqIndex].shape)
+
+    X, Y = np.meshgrid(variableList, np.arange(maxFreqIndex))
+
+    ax.plot_surface(X, Y, freqDataNp[:maxFreqIndex], cmap=plt.get_cmap('rainbow'))
+    ax.set_zlim(-1e-7, 2e-5)
+    # ax.images.append(im)
+
+    ax.set_title('Experiment')
+
+
+    ax.set_ylabel('Frequency (Hz)')
+
+
+    if setting['varible'] == 'd':
+        ax.set_xlabel('Distance (m)')
+    elif setting['varible'] == 'v':
+        ax.set_xlabel('Angular Velocity (rps)')
+
+    plt.show()
+
+    return
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--removeBG', action='store_true')
@@ -692,27 +755,26 @@ def main():
     ## freqDataNp adjustment by HAND
 
     print('freqdata shape: ', freqDataNp.shape)
-    # freqDataNp[0] = 0   # removeDC
+    # freqDataNp[0:100] = 0   # removeDC
     # freqDataNp[freqDataNp>0.005] = 0
-    # freqDataNp = freqDataNp.clip(1e-20)
+    # freqDataNp = freqDataNp.clip(0, 3e-4)
     # freqDataNp = 20 * np.log10(freqDataNp)
-    maxFreq = 5000
+    # maxFreq = 4000
+    # minFreqDiff = 4.4
 
 
     ## Plot Files
 
-    # plotSingleFile(today, filenames[-1], maxFreq=5000, removeDC=False)
+    # plotSingleFile(today, '0001.csv', maxFreq=5000, removeDC=False)
 
     plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn=True,
         removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
-    # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
-    #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
-
-
-
     # plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
     #     roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+
+    # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
+    #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
 
     # plotTheoretical([i for i in np.arange(1, 6, 0.25)], todaySetting, roundup=False, doPlot=True)
 

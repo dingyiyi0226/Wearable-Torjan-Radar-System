@@ -20,7 +20,7 @@ class SigView:
         self.ax[0].set_xlim(0, maxTime)
         self.ax[0].set_ylim(0, timeYMax)
         self.ax[0].set_xlabel('Time (s)')
-        self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+        # self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
         ## Axis 1: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)

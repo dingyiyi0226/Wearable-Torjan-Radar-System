@@ -5,7 +5,8 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dir', type=str, help='working directory')
-parser.add_argument('-c', '--channel', type=int, help='desired channel CHANNEL')
+# parser.add_argument('-f', '--channel_from', type=int, help='desired min channel')
+# parser.add_argument('-t', '--channel_to', type=int, help='desired max channel (not contain')
 args = parser.parse_args()
 
 # print(args.dir)
@@ -24,8 +25,12 @@ for filename in filenames:
     with open(os.path.join(args.dir, filename)) as file:
         data = csv.reader(file)
         for row in data:
-            newrow = row[args.channel]
-            newfile.append([newrow,])
+            newrow = []
+            newrow.append(row[0])  ## time stamp
+            newrow.append(row[1])  ## channel 0
+            newrow.append(row[3])  ## channel 2
+            # newrow = [row[0],] + row[args.channel_from:args.channel_to]
+            newfile.append(newrow)
 
     with open(os.path.join(args.dir, filename), 'w') as file:
         data = csv.writer(file)

@@ -1,4 +1,3 @@
-import argparse
 import csv
 import os
 import random
@@ -32,7 +31,7 @@ def loadArduinoADC() -> list:
         if adc.name == "5.8":
             pairs["highFreqRadar"] = adc
         if adc.name == "915":
-            pairs["lowFreqRadar"] = adc    
+            pairs["lowFreqRadar"] = adc
 
     return pairs
 
@@ -99,7 +98,7 @@ class FMCWRadar:
         return {}
 
     def save(self, fname):
-        if os.path.exists(fname): 
+        if os.path.exists(fname):
             print("File {} exists. Overwrite it.".format(fname))
         
         with open(os.path.join(fname), 'w') as file:
@@ -213,7 +212,7 @@ class FMCWRadar:
         self.realTimeSig['processedSig'] = sg.convolve(self.realTimeSig['processedSig'], window, mode='same')
 
     def _findPeaks(self, height, prominence) -> bool:
-        """ 
+        """
         Find peaks in processedSig
         
         Parameters
@@ -335,10 +334,10 @@ class Troy:
         self.highFreqRadar = None
 
         adcs = loadArduinoADC()
-        if "highFreqRadar" in adcs: 
+        if "highFreqRadar" in adcs:
             self.highFreqRadar = FMCWRadar(adcs["highFreqRadar"])
             self.highFreqRadar._container = self.highData
-        if "lowFreqRadar" in adcs: 
+        if "lowFreqRadar" in adcs:
             self.lowFreqRadar = FMCWRadar(adcs["lowFreqRadar"])
             self.lowFreqRadar._container = self.lowData
 
@@ -427,69 +426,7 @@ class Troy:
             radar.setBgSig(overwrite)
 
 
-def readSimSignal(filename, samFreq, samTime, troy: Troy, readEvent: threading.Event):
-    """
-    Load signal from data
-
-    Parameters
-    ----------
-    filename :
-
-    samFreq :
-    
-    samTime :
-    """
-    
-    simSignal = []
-    simSampFreq = 0
-
-    # Load csvfile
-    with open(filename) as file:
-        datas = csv.reader(file)
-        row = next(datas)
-        if len(row)==1:   # new format
-            simSampFreq = 16e3
-            channel = 0 # 1~8
-            for data in datas:
-                if len(data[channel]):   # omit the last line
-                    simSignal.append(float(data[channel])/1e4)
-        else:
-            row = next(datas)
-            simSampFreq = 1/float(row[-1])
-            for data in datas:
-                simSignal.append(float(data[1]))
-
-    samSig = []
-    i=1
-    j=random.randrange(len(simSignal))
-
-    while readEvent.is_set():
-        # readEvent.wait()
-
-        if i % int(samTime * samFreq) != 0:
-            samSig.append(simSignal[(int(j+i*simSampFreq/samFreq) % len(simSignal))])
-
-        else:
-
-            troy.setSignal(samSig, samTime, isHigh=True)
-
-            samSig.clear()
-            j = random.randrange(len(simSignal))
-            time.sleep(0.001)
-
-        i+=1
-
-
 def main():
-    ## Main function initialization arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--simulation', type=str, help='Read signal files and simulation')
-    args = parser.parse_args()
-
-    ## Arguments checking
-    if args.simulation is not None:
-        if not os.path.exists(args.simulation):
-            sys.exit('Argument --simulation ({}) wrong, exit'.format(args.simulation))
 
     ## For File Writing (Command: Save)
     now = datetime.today().strftime('%Y%m%d')
@@ -508,7 +445,7 @@ def main():
         while True:
             s = input("commands: " + prompt).strip()
 
-            if s == '': 
+            if s == '':
                 pass
 
             elif s.startswith('read'):
@@ -539,8 +476,8 @@ def main():
                 # Open SigView (Oscillscope)
 
                 if ("Oscilloscope-5.8" not in views) and (isinstance(troy.highFreqRadar, FMCWRadar)):
-                    view = SigView(timeYMax=1, freqYMax=0.05, avgFreqYMax=1e-3, 
-                        maxFreq=4e3, maxTime=0.25, figname='Waveform: 5.8GHz')
+                    view = SigView(timeYMax=1, freqYMax=0.05, avgFreqYMax=5e-4,
+                        maxFreq=4e3, maxTime=0.24, figname='Waveform: 5.8GHz')
                     animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
                         fargs=(troy.highFreqRadar.realTimeSig, ))
                     view.figShow()
@@ -548,8 +485,8 @@ def main():
                     views["Oscilloscope-5.8"] = (view, animation)
 
                 if ("Oscilloscope-915" not in views) and (isinstance(troy.lowFreqRadar, FMCWRadar)):
-                    view = SigView(timeYMax=1, freqYMax=0.1, avgFreqYMax=1e-3, 
-                        maxFreq=4e3, maxTime=0.25, figname='Waveform: 915MHz')
+                    view = SigView(timeYMax=1, freqYMax=0.1, avgFreqYMax=1e-4,
+                        maxFreq=4e3, maxTime=0.24, figname='Waveform: 915MHz')
                     animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
                         fargs=(troy.lowFreqRadar.realTimeSig, ))
                     view.figShow()
@@ -584,7 +521,7 @@ def main():
                 path = './rawdata/arduino/{}'.format(now)
                 if not os.path.exists(path): os.makedirs(path)
                 troy.save(
-                    os.path.join(path, 'high-' + distance + '.csv'), 
+                    os.path.join(path, 'high-' + distance + '.csv'),
                     os.path.join(path, 'low-' + distance + '.csv')
                 )
                 print(" > File is saved! Check at: {}".format(path))
@@ -641,8 +578,12 @@ def main():
         print(e)
 
     finally:
+        for view, _ in views.values():
+            plt.close(view.fig)
+        views.clear()
         troy.close()
         GPIO.cleanup()
+
         print('Quit main')
 
 if __name__ == '__main__':
