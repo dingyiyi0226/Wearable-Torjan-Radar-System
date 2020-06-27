@@ -538,20 +538,24 @@ def main():
             elif s.startswith('sig'):
                 # Open SigView (Oscillscope)
 
-                for channel in troy.availableChannels:
-                    # Reject repeated views
-                    if str(channel) in views:
-                        continue
-
-                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, 
-                        figname='Waveform: {}'.format(str(channel)))
-                    animation = FuncAnimation(view.fig, view.update,
-                        init_func=view.init, interval=200, blit=True,
-                        fargs=(channel.realTimeSig, ))
+                if ("Oscilloscope-5.8" not in views) and (isinstance(troy.highFreqRadar, FMCWRadar)):
+                    view = SigView(timeYMax=1, freqYMax=0.05, avgFreqYMax=1e-3, 
+                        maxFreq=4e3, maxTime=0.25, figname='Waveform: 5.8GHz')
+                    animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
+                        fargs=(troy.highFreqRadar.realTimeSig, ))
                     view.figShow()
 
-                    # Record down the view
-                    views[str(channel)] = (view, animation)
+                    views["Oscilloscope-5.8"] = (view, animation)
+
+                if ("Oscilloscope-915" not in views) and (isinstance(troy.lowFreqRadar, FMCWRadar)):
+                    view = SigView(timeYMax=1, freqYMax=0.1, avgFreqYMax=1e-3, 
+                        maxFreq=4e3, maxTime=0.25, figname='Waveform: 915MHz')
+                    animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
+                        fargs=(troy.lowFreqRadar.realTimeSig, ))
+                    view.figShow()
+
+                    views["Oscilloscope-915"] = (view, animation)
+
 
             elif s.startswith('ppi'):
                 # Open PPIView (Object Inferencing)

@@ -11,26 +11,25 @@ def figKwargs(fig, ax, **kwargs):
 class SigView:
     """ Signal Interface """
 
-    def __init__(self, maxAmplitude, maxFreq, maxTime, figname='Waveform', **kwargs):
-        
+    def __init__(self, timeYMax, freqYMax, avgFreqYMax, maxFreq, maxTime, figname='Waveform', **kwargs):
+    
         self.fig, self.ax = plt.subplots(3, 1, num=figname)
         figKwargs(self.fig, self.ax, **kwargs)
 
         ## Axis 0: Signal in Time Domain
         self.ax[0].set_xlim(0, maxTime)
-        self.ax[0].set_ylim(0, maxAmplitude)
-        self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
+        self.ax[0].set_ylim(0, timeYMax)
         self.ax[0].set_xlabel('Time (s)')
+        self.ax[0].ticklabel_format(axis='x', style='sci', scilimits=(0,0), useMathText=True)
         
         ## Axis 1: Signal in Frequency Domain
         self.ax[1].set_xlim(0, maxFreq)
-        self.ax[1].set_ylim(-0.002, 0.02)
+        self.ax[1].set_ylim(0, freqYMax)
         self.ax[1].set_xlabel('Frequency (Hz)')
 
         ## Axis 2: Signal in Average Frequency Domain
         self.ax[2].set_xlim(0, maxFreq)
-        # self.ax[2].set_ylim(-0.0002, 0.05)
-        self.ax[2].set_ylim(-0.0002, 0.02)
+        self.ax[2].set_ylim(0, avgFreqYMax)
         self.fig.subplots_adjust(hspace=0.3)
 
         self.timeLine, = self.ax[0].plot([], [])

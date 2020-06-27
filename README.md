@@ -2,22 +2,25 @@
 
 ## 2020 IEEE AP-S Student Design Contest
 
-![Demo Video]()
+[Report]()
+
+[Demo Video]()
 
 ## How to use
 
-1. View and edit the pin setting
-    ```
-    vim config.py
-    ```
-2. Run main process
-    ```
-    python main_control.py
-    ```
+1. Build up the system with the [setup guideline]()
 
-## Execute Environment
+2. View and edit the pin setting
 
-Raspberry Pi 3B, with Python 3.5.3
+    ``` vim config.py ```
+
+3. Run main process
+   
+    ``` python main_control.py ```
+
+## System Architecture
+
+
 
 ## Routing
 
@@ -48,6 +51,10 @@ Raspberry Pi 3B, with Python 3.5.3
 +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
 | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
 ```
+
+## Execute Environment
+
+Raspberry Pi 3B, with Python 3.5.3
 
 ## Requirements
 

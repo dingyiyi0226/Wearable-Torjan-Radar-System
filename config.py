@@ -1,23 +1,23 @@
 ADF_HIGH_PINS = {
-    # 'GND': 6,        # T3
-    'W_CLK': 12,       # T4
-    'DATA' : 16,       # T5
-    'LE'   : 18,       # T6
-    'TXDATA' : 13,     # T16
-    'MUXOUT' : 15,     # T8
+    # 'GND': 14,       # T3
+    'W_CLK': 8,        # T4
+    'DATA' : 10,       # T5
+    'LE'   : 12,       # T6
+    'TXDATA' : 16,     # T16
+    'MUXOUT' : 18,     # T8
 }
 
 ADF_LOW_PINS = {
-    # 'GND': 6,        # T3
-    'W_CLK': 12,       # T4
-    'DATA' : 16,       # T5
-    'LE'   : 18,       # T6
-    'TXDATA' : 13,     # T16
-    'MUXOUT' : 15,     # T8
+    # 'GND': 9,        # T3
+    'W_CLK': 11,       # T4
+    'DATA' : 13,       # T5
+    'LE'   : 15,       # T6
+    'TXDATA' : 5,      # T16
+    'MUXOUT' : 7,      # T8
 }
 
 DIR_PINS = {
-    'STEP': 16,
-    'DIR' : 18,
-    'ENA' : 7,          # no use
+    'STEP': 31,
+    'DIR' : 33,
+    'ENA' : 0,          # no use
 }
