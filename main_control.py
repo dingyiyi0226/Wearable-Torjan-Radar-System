@@ -323,9 +323,9 @@ class Troy:
 
         ## Data
 
-        self.currentDir = 90
-        self.lowData  = {}      ## info of each direction: { angle: [(range, velo)] }
-        self.highData = {}
+        self.currentDir = 0
+        self.lowData    = {}      ## info of each direction: { angle: [(range, velo)] }
+        self.highData   = {}
 
         ## Modules
 

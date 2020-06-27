@@ -64,9 +64,10 @@ class PPIView:
 
     def __init__(self, maxR, figname='PPI'):
         self.fig = plt.figure(figname)
-        self.ax = self.fig.add_subplot(111, polar=True)
+        self.ax  = self.fig.add_subplot(111, polar=True)
         self.cax = self.fig.add_axes([0.85, 0.1, 0.03, 0.8])
 
+        self.ax.set_theta_zero_location("N")
         self.ax.set_rmax(maxR)
         self.ax.set_rticks(np.arange(0, maxR, maxR//5))
 
