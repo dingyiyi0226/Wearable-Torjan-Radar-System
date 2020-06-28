@@ -65,7 +65,7 @@ class ObjView:
 
         self.fig, self.ax = plt.subplots(1, 1, num=figname, figsize=(5,3))
 
-        self.ax.set_xlim(-10, maxR)
+        self.ax.set_xlim(0, maxR)
         self.ax.set_ylim(0, maxV)
 
         self.ax.set_xlabel('Distance (m)')
