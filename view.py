@@ -75,12 +75,12 @@ class ObjView:
         # self.cmap = plt.get_cmap('magma')
         self.objData = self.ax.scatter([], [], marker='o',s=30, c='m')
 
-        legend_elements = [ Line2D([0], [0], marker='o', color='w', label='Low Frequency Radar',
-                            markerfacecolor='r', markersize=8),
-                            Line2D([0], [0], marker='o', color='w', label='High Frequency Radar',
-                            markerfacecolor='m', markersize=8),]
+        # legend_elements = [ Line2D([0], [0], marker='o', color='w', label='Low Frequency Radar',
+        #                     markerfacecolor='r', markersize=8),
+        #                     Line2D([0], [0], marker='o', color='w', label='High Frequency Radar',
+        #                     markerfacecolor='m', markersize=8),]
 
-        self.ax.legend(handles=legend_elements, loc='upper right')
+        # self.ax.legend(handles=legend_elements, loc='upper right')
 
 
     def figShow(self):
@@ -101,16 +101,16 @@ class ObjView:
 
             rangeData.extend([i[0] for i in lowInfo])
             veloData.extend([i[1] for i in lowInfo])
-            colorData.extend(['r' for i in lowInfo])
+            # colorData.extend(['r' for i in lowInfo])
 
         if highInfo is not None:
 
             rangeData.extend([i[0] for i in highInfo])
             veloData.extend([i[1] for i in highInfo])
-            colorData.extend(['m' for i in highInfo])
+            # colorData.extend(['m' for i in highInfo])
 
         self.objData.set_offsets(np.c_[rangeData, veloData])
-        self.objData.set_color(colorData)
+        # self.objData.set_color(colorData)
 
         return self.objData,
 
