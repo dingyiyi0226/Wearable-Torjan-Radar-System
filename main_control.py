@@ -59,8 +59,8 @@ def main():
                 # Open SigView (Oscillscope)
 
                 if ("Oscilloscope-5.8" not in views) and (isinstance(troy.highFreqRadar, FMCWRadar)):
-                    view = SigView(timeYMax=1, freqYMax=0.05, avgFreqYMax=5e-4,
-                        maxFreq=4e3, maxTime=0.24, figname='Waveform: 5.8GHz')
+                    view = SigView(timeYMax=1, freqYMax=0.05, avgFreqYMax=8e-4,
+                        maxFreq=4e3, maxTime=0.24, linecolor='g',figname='Waveform: 5.8GHz')
                     animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
                         fargs=(troy.highFreqRadar.realTimeSig, ))
                     view.figShow()
@@ -68,8 +68,8 @@ def main():
                     views["Oscilloscope-5.8"] = (view, animation)
 
                 if ("Oscilloscope-915" not in views) and (isinstance(troy.lowFreqRadar, FMCWRadar)):
-                    view = SigView(timeYMax=1, freqYMax=0.1, avgFreqYMax=1e-4,
-                        maxFreq=4e3, maxTime=0.24, figname='Waveform: 915MHz')
+                    view = SigView(timeYMax=1, freqYMax=0.1, avgFreqYMax=8e-4,
+                        maxFreq=4e3, maxTime=0.24, linecolor='r',figname='Waveform: 915MHz')
                     animation = FuncAnimation(view.fig, view.update, init_func=view.init, interval=200, blit=True,
                         fargs=(troy.lowFreqRadar.realTimeSig, ))
                     view.figShow()
@@ -82,7 +82,7 @@ def main():
                 if 'OBJ' in views:
                     continue
 
-                view = ObjView(maxR=100, maxV=30)
+                view = ObjView(maxR=20, maxV=25)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
                     fargs=(troy.lowData, troy.highData, ))
