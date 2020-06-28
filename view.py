@@ -6,8 +6,7 @@ from matplotlib.widgets import Button
 def figKwargs(fig, ax, **kwargs):
     if 'title' in kwargs:
         fig.suptitle = kwargs['title']
-
-
+        
 class SigView:
     """ Signal Interface """
 

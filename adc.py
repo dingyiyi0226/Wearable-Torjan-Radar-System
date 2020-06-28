@@ -3,6 +3,7 @@
   PackageName [ Radar ] 
   Synopsis    [ ADC Protocal. ]
 """
+
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -27,7 +28,7 @@ class ADCConnector(ADC):
         ## ATTRIBUTE
 
         self.name = ""
-        self._manager = None
+        self._processor = None
         self._getname()
 
         ## THREADING
@@ -39,9 +40,9 @@ class ADCConnector(ADC):
 
     ## Public Function
 
-    def setManager(self, manager):
-        assert(self._manager is not None)
-        self._manager = manager
+    def setProcessor(self, processor):
+        assert(self._processor is None)
+        self._processor = processor
 
     def start(self):
         self._serial.flush()
@@ -96,8 +97,12 @@ class ADCConnector(ADC):
                         isValid = False
 
                     # Push the data to self._manager
-                    if isValid and self._manager is not None:
-                        self._manager.loadData(signal, samplingTime)
+                    if isValid and self._processor is not None:
+                        self._processor.loadData(signal, samplingTime)
+
+                # FIXME: Unknown bugs
+                elif s.startswith("Unknown Command: rr"):
+                    pass
 
                 else:
                     print('\nRead:', s)
