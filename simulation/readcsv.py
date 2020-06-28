@@ -34,7 +34,7 @@ def parseCSV(filename, today, start=0, end=1):
         if len(row) == 1:      # new format
             
             simFreq = 16e3
-            channel = 0 # 1~8
+            channel = 1 # 0~7
             for data in datas:
                 if len(data[channel]):   # omit the last line
                     signal.append(float(data[channel])/1e6)
@@ -44,7 +44,7 @@ def parseCSV(filename, today, start=0, end=1):
             simFreq = 1/float(row[-1])
             for data in datas:
                 signal.append(float(data[1]))
-
+    # signal = signal[5000:]
     N = len(signal)
     sig_len = N//end
 
@@ -132,6 +132,10 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
             N = len(y)                          ## number of simulation data points
             minFreqDiff = fs / N                ## spacing between two freqencies on axis
 
+            if pltind==0:
+                maxFreq = (N // 2) * minFreqDiff
+                maxFreqIndex = int(maxFreq / minFreqDiff)
+
             print('-----------------------------')
             print('read {} file'.format(filename))
             print('N =', N)
@@ -150,11 +154,11 @@ def loadBatchCSV(filenames, today, tm, removeBG: bool, normalizeFreq: bool, avgF
             yfn = [i/N for i in yf]             ## normalization
                                                 ## let the amplitude of output signal equals to inputs
 
-            maxFreq = (N // 2) * minFreqDiff
-            maxFreqIndex = int(maxFreq / minFreqDiff)
 
             # Truncated signal
             freqData.append(yfn[:maxFreqIndex])
+            # print(np.shape(freqData))
+            # print(minFreqDiff)
 
             # Recording each fs and N
             freqDataFs.append(fs)
@@ -605,17 +609,20 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
     elif setting['varible'] == 'v':
         ax[1].set_xlabel('Angular Velocity (rps)')
 
-        veloList = angV2V(variableList, radius=7)
-
-        theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:r', alpha=1, label='r=7')
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r', alpha=0.5)
+        # veloList = angV2V(variableList, radius=7)
+        # theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
+        # ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:r', alpha=1, label='r=7')
+        # ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r', alpha=0.5)
 
         veloList = angV2V(variableList, radius=14)
-
         theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
         ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m', alpha=1, label='r=14')
         ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:m', alpha=0.5)
+
+        # veloList = angV2V(variableList, radius=10)
+        # theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
+        # ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:g', alpha=1, label='r=10')
+        # ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:g', alpha=0.5)
 
         ax[1].legend()
 
@@ -696,37 +703,37 @@ def main():
 
     ## Settings definitions at plotTheoretical() documentation
 
-    DELAYLINE = 10 * (3 ** 0.5)
-    SETUPLINE = 1.5 * (2.24 ** 0.5)
+    DELAYLINE = 10 * (2.24 ** 0.5)
+    SETUPLINE = 0.6 * (2.24 ** 0.5)
 
     ## Tide up setting
 
     todaySetting = {
         'BW': 100e6,
-        'tm': 8000e-6,
+        'tm': 4000e-6 * 2,
         'delayTmRatio': 0,
-        'distanceOffset': SETUPLINE+DELAYLINE,
-        'freq': 5.8e6,
-        'varible': 'v',
-        'distance': 2,
+        'distanceOffset': SETUPLINE,
+        'freq': 5800e6,
+        'varible': 'd',
+        'distance': 2.5,
         'velo': 0,
     }
 
     ## Load files
 
-    today = '0514-tri4'
-    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
+    today = '0627_move_radar'
+    # filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
+    filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv') and i.startswith('high')]
     filenames.sort()
     # filenames.remove('202.csv')
-    # filenames = ['200001.csv',]
-    # print(filenames)
+    print('filenames:', filenames)
 
-    variableList = [float(i[:-5]) / 100 for i in filenames]
-    # variableList = [int(i[-7:-5]) for i in filenames]
-    # variableList = [4 - i*0.2 for i in range(10)]
-    # variableList = range(5)
-
-    # print(variableList)
+    if todaySetting['varible'] == 'd':
+        variableList = [float(i[-9:-5]) / 100 for i in filenames]
+    else:
+        variableList = [int(i[-7:-5]) for i in filenames]
+    # variableList = [int(i[-9:-5]) for i in filenames]
+    print('variableList:', variableList)
 
     freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff = loadBatchCSV(
         filenames, today, todaySetting['tm'], args.removeBG, args.normalizeFreq, args.averageFreq)
@@ -755,7 +762,7 @@ def main():
     ## freqDataNp adjustment by HAND
 
     print('freqdata shape: ', freqDataNp.shape)
-    # freqDataNp[0:100] = 0   # removeDC
+    freqDataNp[0] = 0   # removeDC
     # freqDataNp[freqDataNp>0.005] = 0
     # freqDataNp = freqDataNp.clip(0, 3e-4)
     # freqDataNp = 20 * np.log10(freqDataNp)
@@ -765,13 +772,13 @@ def main():
 
     ## Plot Files
 
-    # plotSingleFile(today, '0001.csv', maxFreq=5000, removeDC=False)
+    # plotSingleFile(today, 'low-200201.csv', maxFreq=5000, removeDC=False)
 
     plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn=True,
         removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
-    # plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
-    #     roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
+        roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
     # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
     #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)

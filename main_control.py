@@ -85,7 +85,7 @@ def main():
                 view = ObjView(maxR=100, maxV=30)
                 animation = FuncAnimation(view.fig, view.update,
                     init_func=view.init, interval=200, blit=True,
-                    fargs=(troy.objectInfo, ))
+                    fargs=(troy.lowData, troy.highData, ))
                 view.figShow()
 
                 # Record down the view

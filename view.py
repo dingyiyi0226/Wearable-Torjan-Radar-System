@@ -1,7 +1,7 @@
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.lines import Line2D
 
 def figKwargs(fig, ax, **kwargs):
     if 'title' in kwargs:
@@ -74,6 +74,13 @@ class ObjView:
         # self.cmap = plt.get_cmap('magma')
         self.objData = self.ax.scatter([], [], marker='o',s=30, c='m')
 
+        legend_elements = [ Line2D([0], [0], marker='o', color='w', label='Low Frequency Radar',
+                            markerfacecolor='r', markersize=8),
+                            Line2D([0], [0], marker='o', color='w', label='High Frequency Radar',
+                            markerfacecolor='m', markersize=8),]
+
+        self.ax.legend(handles=legend_elements, loc='upper right')
+
 
     def figShow(self):
         plt.pause(1)
@@ -82,21 +89,27 @@ class ObjView:
         """ Return elements to matplotlib.Animation.FuncAnimation """
         return self.objData,
 
-    def update(self, frame, infoDict: dict):
+    def update(self, frame, lowInfo, highInfo):
         """ Return elements to matplotlib.Animation.FuncAnimation """
 
-        directionData = []
         rangeData = []
         veloData = []
+        colorData = []
 
-        for direction, info in infoDict.items():
-            # info type: [(range, velo),]
-            if info is not None:
-                directionData.extend([direction/180*np.pi for i in info])
-                rangeData.extend([i[0] for i in info])
-                veloData.extend([i[1] for i in info])
+        if lowInfo is not None:
+
+            rangeData.extend([i[0] for i in lowInfo])
+            veloData.extend([i[1] for i in lowInfo])
+            colorData.extend(['r' for i in lowInfo])
+
+        if highInfo is not None:
+
+            rangeData.extend([i[0] for i in highInfo])
+            veloData.extend([i[1] for i in highInfo])
+            colorData.extend(['m' for i in highInfo])
 
         self.objData.set_offsets(np.c_[rangeData, veloData])
+        self.objData.set_color(colorData)
 
         return self.objData,
 
