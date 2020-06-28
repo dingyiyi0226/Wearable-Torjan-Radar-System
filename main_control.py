@@ -145,22 +145,6 @@ def main():
             elif s.startswith('track'):
                 troy.tracking()
 
-            elif s.startswith('bgsig'):
-                # Open Background SigView (Oscillscope)
-
-                for channel in troy.availableChannels:
-                    # Reject repeated views
-                    if str(channel) + '-bg' in views:
-                        continue
-
-                    view = SigView(maxAmplitude=1, maxFreq=4e3, maxTime=0.25, figname='Background: {}'.format(str(channel)))
-                    animation = FuncAnimation(view.fig, view.update,
-                        init_func=view.init, interval=200, blit=True,
-                        fargs=(channel.backgroundSig, ))
-                    view.figShow()
-
-                    # Record down the view
-                    views[str(channel) + '-bg'] = (view, animation)
 
             elif s.startswith('q'):
                 break
