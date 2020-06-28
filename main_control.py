@@ -6,7 +6,7 @@ from matplotlib.animation import FuncAnimation
 
 from radar import FMCWRadar, Troy
 from RPi import GPIO
-from view import PPIView, SigView
+from view import PPIView, SigView, ObjView
 
 
 def main():
@@ -76,6 +76,20 @@ def main():
 
                     views["Oscilloscope-915"] = (view, animation)
 
+            elif s.startswith('obj'):
+                # Open Objview
+
+                if 'OBJ' in views:
+                    continue
+
+                view = ObjView(maxR=100, maxV=30)
+                animation = FuncAnimation(view.fig, view.update,
+                    init_func=view.init, interval=200, blit=True,
+                    fargs=(troy.objectInfo, ))
+                view.figShow()
+
+                # Record down the view
+                views['OBJ'] = (view, animation)
 
             elif s.startswith('ppi'):
                 # Open PPIView (Object Inferencing)

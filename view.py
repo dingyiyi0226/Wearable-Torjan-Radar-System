@@ -12,7 +12,7 @@ class SigView:
 
     def __init__(self, timeYMax, freqYMax, avgFreqYMax, maxFreq, maxTime, figname='Waveform', **kwargs):
     
-        self.fig, self.ax = plt.subplots(3, 1, num=figname)
+        self.fig, self.ax = plt.subplots(3, 1, num=figname, figsize=(5,3))
         figKwargs(self.fig, self.ax, **kwargs)
 
         ## Axis 0: Signal in Time Domain
@@ -57,6 +57,48 @@ class SigView:
         self.avgFreqLine.set_data(sigDict['freqAxis'], sigDict['processedSig'])
 
         return self.timeLine, self.freqLine, self.avgFreqLine,
+
+class ObjView:
+    """ Radar Interface """
+
+    def __init__(self, maxR, maxV, figname='Objects'):
+
+        self.fig, self.ax = plt.subplots(1, 1, num=figname, figsize=(5,3))
+
+        self.ax.set_xlim(-10, maxR)
+        self.ax.set_ylim(0, maxV)
+
+        self.ax.set_xlabel('Distance (m)')
+        self.ax.set_ylabel('Speed (m/s)')
+
+        # self.cmap = plt.get_cmap('magma')
+        self.objData = self.ax.scatter([], [], marker='o',s=30, c='m')
+
+
+    def figShow(self):
+        plt.pause(1)
+
+    def init(self):
+        """ Return elements to matplotlib.Animation.FuncAnimation """
+        return self.objData,
+
+    def update(self, frame, infoDict: dict):
+        """ Return elements to matplotlib.Animation.FuncAnimation """
+
+        directionData = []
+        rangeData = []
+        veloData = []
+
+        for direction, info in infoDict.items():
+            # info type: [(range, velo),]
+            if info is not None:
+                directionData.extend([direction/180*np.pi for i in info])
+                rangeData.extend([i[0] for i in info])
+                veloData.extend([i[1] for i in info])
+
+        self.objData.set_offsets(np.c_[rangeData, veloData])
+
+        return self.objData,
 
 class PPIView:
     """ Radar Interface """
