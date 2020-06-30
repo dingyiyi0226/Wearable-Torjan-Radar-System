@@ -541,13 +541,13 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
 
     ## map config
 
-    YTICKCNT = 16
-    CMAP = 'gray'
+    YTICKCNT = 11
+    CMAP = 'Greys'
     INTERP = 'nearest'
 
     ## Generate Figure
 
-    fig, ax = plt.subplots(1,2, num='Figure', figsize=(8,4), constrained_layout=True)
+    fig, ax = plt.subplots(1,2, num='Figure', figsize=(9,4), constrained_layout=True)
 
     title = today
     if removeBG:
@@ -565,19 +565,22 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
     ## Figure 1: Experiment
 
     im = NonUniformImage(ax[0], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex])
+    im.set_data(variableList[1:], np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex, 1:])
     ax[0].images.append(im)
 
-    ax[0].set_title('Experiment')
+    if setting['varible'] == 'd':
+        ax[0].set_title('Distance Detection')
+    else:
+        ax[0].set_title('Speed Detection')
     # ax[0].set_xticks(variableList[::1])
     ax[0].set_xlim(0, variableList[-1])
 
     ax[0].set_ylabel('Frequency (Hz)')
     ax[0].set_yticks(np.linspace(0, maxFreqIndex, YTICKCNT))
-    # ax[0].set_yticklabels(np.linspace(0, maxFreq, YTICKCNT, dtype=int))
+    ax[0].set_yticklabels(np.linspace(0, maxFreq, YTICKCNT, dtype=int))
     ax[0].set_ylim(0, maxFreqIndex)
 
-    ax[0].tick_params(right=True, left=False, labelleft=False)
+    # ax[0].tick_params(right=True, left=False, labelleft=False)
 
     if setting['varible'] == 'd':
         ax[0].set_xlabel('Distance (m)')
@@ -587,14 +590,18 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
     ## Figure 2: Experiment with Theoritical Line
 
     im = NonUniformImage(ax[1], extent=(0,0,0,0), cmap=CMAP, interpolation=INTERP)
-    im.set_data(variableList, np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex])
+    im.set_data(variableList[1:], np.arange(maxFreqIndex), freqDataNp[:maxFreqIndex, 1:])
     ax[1].images.append(im)
 
-    ax[1].set_title('Theoretical')
+    if setting['varible'] == 'd':
+        ax[1].set_title('5.8 GHz Radar')
+    else:
+        ax[1].set_title('5.8 GHz Radar')
 
-    # ax[1].set_xticks(variableList[::1])
+    ax[1].set_xticks(range(0, 20, 2))
     ax[1].set_xlim(0, variableList[-1])
 
+    ax[1].set_ylabel('Frequency (Hz)')
     ax[1].set_yticks(np.linspace(0,maxFreqIndex,YTICKCNT))
     ax[1].set_yticklabels(np.linspace(0, maxFreq, YTICKCNT, dtype=int))
     ax[1].set_ylim(0, maxFreqIndex)
@@ -603,21 +610,23 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
         ax[1].set_xlabel('Distance (m)')
 
         theoF1List, theoF2List = plotTheoretical(variableList, setting, roundup, doPlot=False)
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m')
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], ':m')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], ':r', label='theoretical line')
+        ax[1].legend()
 
     elif setting['varible'] == 'v':
-        ax[1].set_xlabel('Angular Velocity (rps)')
+        ax[1].set_xlabel('Velocity (m/s)')
 
         # veloList = angV2V(variableList, radius=7)
         # theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
         # ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:r', alpha=1, label='r=7')
         # ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:r', alpha=0.5)
 
-        veloList = angV2V(variableList, radius=14)
+        # veloList = angV2V(variableList, radius=14)
+        veloList = variableList
         theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], '.:m', alpha=1, label='r=14')
-        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], '.:m', alpha=0.5)
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF1List], ':r', alpha=1, label='theoretical line')
+        ax[1].plot(variableList, [i // minFreqDiff for i in theoF2List], ':r', alpha=1)
 
         # veloList = angV2V(variableList, radius=10)
         # theoF1List, theoF2List = plotTheoretical(veloList, setting, roundup, doPlot=False)
@@ -628,7 +637,8 @@ def plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, se
 
     ## Figure legend
 
-    plt.colorbar(im, ax=ax.ravel().tolist())
+    cbar = plt.colorbar(im, ax=ax.ravel().tolist())
+    cbar.set_label(' Normalized Amplitude (dB)')
     plt.show()
 
     return
@@ -694,6 +704,28 @@ def plot3DMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, 
 
     return
 
+def rcsPlot(variableList, freqDataNp):
+
+    peaks = freqDataNp.max(axis=0)
+    angles = np.array(variableList) / 360. * 2 * np.pi
+
+    print(freqDataNp.shape)
+    print(peaks.shape)
+
+    ax = plt.subplot(111, projection='polar')
+
+    ax.set_title('Reflected Power (dB) @ 5.8 GHz')
+    ax.plot(angles, peaks, 'g')
+
+    ax.set_theta_zero_location("N")
+
+    ax.set_rticks(np.arange(-40, 0, 10))
+    ax.set_rlabel_position(-77)
+
+    ax.grid(True)
+    plt.show()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--removeBG', action='store_true')
@@ -714,25 +746,28 @@ def main():
         'delayTmRatio': 0,
         'distanceOffset': SETUPLINE,
         'freq': 5800e6,
-        'varible': 'd',
-        'distance': 2.5,
+        'varible': 'v',
+        'distance': 3.4,
         'velo': 0,
     }
 
     ## Load files
 
-    today = '0627_move_radar'
+    today = '0628_rcs_2_tmp'
     # filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv')]
     filenames = [i for i in  os.listdir('./rawdata/{}/'.format(today)) if i.endswith('1.csv') and i.startswith('high')]
     filenames.sort()
-    # filenames.remove('202.csv')
+    filenames = filenames[:-1]
+    # filenames = [filenames[0], ] + filenames[:20]
+    filenames = filenames[:-1] + [filenames[1], ]
     print('filenames:', filenames)
 
     if todaySetting['varible'] == 'd':
         variableList = [float(i[-9:-5]) / 100 for i in filenames]
     else:
         variableList = [int(i[-7:-5]) for i in filenames]
-    # variableList = [int(i[-9:-5]) for i in filenames]
+
+    variableList = [int(i[-8:-5]) for i in filenames]
     print('variableList:', variableList)
 
     freqDataNp, increment, maxFreq, maxFreqIndex, minFreqDiff = loadBatchCSV(
@@ -763,10 +798,14 @@ def main():
 
     print('freqdata shape: ', freqDataNp.shape)
     freqDataNp[0] = 0   # removeDC
+    # print(np.max(freqDataNp))
+
+    # freqDataNp /= np.max(freqDataNp, axis=0)
+    freqDataNp /= np.max(freqDataNp)
+    freqDataNp = 20 * np.log10(freqDataNp + 1e-2)
     # freqDataNp[freqDataNp>0.005] = 0
-    # freqDataNp = freqDataNp.clip(0, 3e-4)
-    # freqDataNp = 20 * np.log10(freqDataNp)
-    # maxFreq = 4000
+    # freqDataNp = freqDataNp.clip(0, 0.001)
+    maxFreq = 2000
     # minFreqDiff = 4.4
 
 
@@ -774,11 +813,14 @@ def main():
 
     # plotSingleFile(today, 'low-200201.csv', maxFreq=5000, removeDC=False)
 
-    plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn=True,
-        removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    rcsPlot(variableList[1:], freqDataNp[:, 1:])
 
-    plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, variableList, setting=todaySetting,
-        roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+    # plotMultipleFile(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, oneColumn=False,
+    #     removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
+
+    # veloList = angV2V(variableList, radius=14)
+    # plotMap(freqDataNp, increment, maxFreq, minFreqDiff, today, veloList, setting=todaySetting,
+    #     roundup=False, removeBG=args.removeBG, normalizeFreq=args.normalizeFreq, avgFreq=args.averageFreq)
 
     # plotExpAndTheo(freqDataNp, increment, maxFreq, minFreqDiff, today, filenames, variableList, setting=todaySetting,
     #     roundup=True, removeBG=args.removeBG, avgFreq=args.averageFreq)
