@@ -40,10 +40,10 @@ class FMCWRadar:
         self._adc.setProcessor(self)
         if self._adc.name == "5.8":
             self._signalModule = ADF4158.set5800Default(pins=ADF_HIGH_PINS)
-            self.setModuleProperty(5.8e9, 1e8, 8e-3, 1 * 2.24)
+            self.setModuleProperty(5.8e9, 1e8, 4e-3, 0 * 2.24)
         if self._adc.name == "915":
             self._signalModule = ADF4158.set915Default(pins=ADF_LOW_PINS)
-            self.setModuleProperty(915e6, 1.5e7, 3.3e-5, 1 * 2.24)
+            self.setModuleProperty(915e6, 1.5e7, 4e-3, 0 * 2.24)
 
         ## SIGNAL PROCESSING
 
@@ -109,7 +109,7 @@ class FMCWRadar:
         self._BW    = BW
         self._tm    = tm
         self._fm    = np.nan if tm == 0 else 1 / tm
-        self._distanceOffset = 1 * 2.24 ** 0.5
+        self._distanceOffset = distanceOffset
 
         # TODO
         # self._signalModule.setRampAttribute()
@@ -168,10 +168,10 @@ class FMCWRadar:
         self._rmBgSig()
         self._avgFreqSig()
         
-        if not self._findPeaks(height=1e-4, prominence=1e-4):
+        if not self._findPeaks(height=1e-4, prominence=3e-5):
             return None
 
-        self._findFreqPair(peakDiff=1e-3)
+        self._findFreqPair(peakDiff=1e-5)
         return self._calculateInfo()
 
     def _fft(self):

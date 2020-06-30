@@ -10,7 +10,7 @@ def figKwargs(fig, ax, **kwargs):
 class SigView:
     """ Signal Interface """
 
-    def __init__(self, timeYMax, freqYMax, avgFreqYMax, maxFreq, maxTime, figname='Waveform', **kwargs):
+    def __init__(self, timeYMax, freqYMax, avgFreqYMax, maxFreq, maxTime, linecolor, figname='Waveform', **kwargs):
     
         self.fig, self.ax = plt.subplots(3, 1, num=figname, figsize=(5,5))
         figKwargs(self.fig, self.ax, **kwargs)
@@ -32,9 +32,9 @@ class SigView:
         self.ax[1].set_xlabel('Frequency (Hz)')
         self.fig.subplots_adjust(hspace=0.3)
 
-        self.timeLine, = self.ax[0].plot([], [])
-        self.freqLine, = self.ax[1].plot([], [], 'r')
-        self.avgFreqLine, = self.ax[2].plot([], [], 'r')
+        self.timeLine, = self.ax[0].plot([], [], linecolor)
+        self.freqLine, = self.ax[1].plot([], [], linecolor)
+        self.avgFreqLine, = self.ax[2].plot([], [], linecolor)
 
     def figShow(self):
         plt.pause(1)
@@ -67,7 +67,7 @@ class ObjView:
         self.fig, self.ax = plt.subplots(1, 1, num=figname, figsize=(5,3))
 
         self.ax.set_xlim(0, maxR)
-        self.ax.set_ylim(0, maxV)
+        self.ax.set_ylim(-2, maxV)
 
         self.ax.set_xlabel('Distance (m)')
         self.ax.set_ylabel('Speed (m/s)')
@@ -75,12 +75,12 @@ class ObjView:
         # self.cmap = plt.get_cmap('magma')
         self.objData = self.ax.scatter([], [], marker='o',s=30, c='m')
 
-        # legend_elements = [ Line2D([0], [0], marker='o', color='w', label='Low Frequency Radar',
-        #                     markerfacecolor='r', markersize=8),
-        #                     Line2D([0], [0], marker='o', color='w', label='High Frequency Radar',
-        #                     markerfacecolor='m', markersize=8),]
+        legend_elements = [ Line2D([0], [0], marker='o', color='w', label='915 MHz Frequency Radar',
+                            markerfacecolor='r', markersize=8),
+                            Line2D([0], [0], marker='o', color='w', label='5.8 GHz Frequency Radar',
+                            markerfacecolor='g', markersize=8),]
 
-        # self.ax.legend(handles=legend_elements, loc='upper right')
+        self.ax.legend(handles=legend_elements, loc='upper right')
 
 
     def figShow(self):
@@ -101,16 +101,16 @@ class ObjView:
 
             rangeData.extend([i[0] for i in lowInfo])
             veloData.extend([i[1] for i in lowInfo])
-            # colorData.extend(['r' for i in lowInfo])
+            colorData.extend(['r' for i in lowInfo])
 
         if highInfo is not None:
 
             rangeData.extend([i[0] for i in highInfo])
             veloData.extend([i[1] for i in highInfo])
-            # colorData.extend(['m' for i in highInfo])
+            colorData.extend(['g' for i in highInfo])
 
         self.objData.set_offsets(np.c_[rangeData, veloData])
-        # self.objData.set_color(colorData)
+        self.objData.set_color(colorData)
 
         return self.objData,
 
