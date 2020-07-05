@@ -197,7 +197,8 @@ class ADF4158:
 
         clk: { Clock.RISING_EDGE, Clock.FALLING_EDGE } optional
         """
-        
+        self._setReadyToWrite()        
+
         # Raise Clock after setup DATA 
         for i in range(31, 0, -1):
             GPIO.output(self.DATA, bool((word >> i) % 2))
@@ -227,17 +228,17 @@ class ADF4158:
         """ Initialize bit patterns """
         self.patterns.clear()
         self.patterns['PIN7']  = 0x00000007
-        self.patterns['PIN6A'] = 0x00000006
+        self.patterns['PIN6A'] = 0x00027106
         self.patterns['PIN6B'] = 0x00800006
-        self.patterns['PIN5A'] = 0x00000005
+        self.patterns['PIN5A'] = 0x00020C55
         self.patterns['PIN5B'] = 0x00800005
         self.patterns['PIN4']  = 0x00180104
-        self.patterns['PIN3']  = 0x00000043
+        self.patterns['PIN3']  = 0x00000443
         self.patterns['PIN2']  = 0x0040800A
         self.patterns['PIN1']  = 0x00000001
-        self.patterns['PIN0']  = 0x01220000
+        self.patterns['PIN0']  = 0x811F8000
 
-    # ------------------------------------------------------ #
+   # ------------------------------------------------------ #
     # Public Function                                        #
     # ------------------------------------------------------ #
 
@@ -245,6 +246,7 @@ class ADF4158:
         self.isSet = True
         for value in self.patterns.values():
             self._sendWord(value)
+            # print(hex(value))
 
     # TODO
     def getConfig(self):
@@ -398,17 +400,20 @@ def set5800Default(module=None, pins=None):
     assert(pins is not None or module is not None)
 
     if module is None: 
-        assert(pins is not None)
         module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
 
-    module._initBitPatterns()
+    module.patterns['PIN7']  = 0x00000007
+    module.patterns['PIN6A'] = 0x00027106
+    module.patterns['PIN6B'] = 0x00800006
+    module.patterns['PIN5A'] = 0x00020C55
+    module.patterns['PIN5B'] = 0x00800005
+    module.patterns['PIN4']  = 0x00180104
+    module.patterns['PIN3']  = 0x00000443
+    module.patterns['PIN2']  = 0x0040800A
+    module.patterns['PIN1']  = 0x00000001
+    module.patterns['PIN0']  = 0x811F8000
 
-    module.setRamp(True)
-    module.setRampMode(RampMode.CONT_TRIANGULAR)
-
-    module.setPumpSetting(current=0.3125)
-    module.setModulationInterval(centerFreq=5.75e9, bandwidth=1e8, tm=1.024e-3)
-    module.setMuxout(Muxout.THREE_STATE)
+    module.sendConfig()
 
     return module
 
@@ -418,18 +423,21 @@ def set915Default(module=None, pins=None):
     assert(pins is not None or module is not None)
 
     if module is None: 
-        assert(pins is not None)
         module = ADF4158(pins["W_CLK"], pins["DATA"], pins["LE"], pins["TXDATA"], pins["MUXOUT"])
 
-    module._initBitPatterns()
+    module.patterns['PIN7']  = 0x00000007
+    module.patterns['PIN6A'] = 0x00009C46
+    module.patterns['PIN6B'] = 0x00814006
+    module.patterns['PIN5A'] = 0x00013A65
+    module.patterns['PIN5B'] = 0x00800005
+    module.patterns['PIN4']  = 0x00180404
+    module.patterns['PIN3']  = 0x00000443
+    module.patterns['PIN2']  = 0x0000800A
+    module.patterns['PIN1']  = 0x03330001
+    module.patterns['PIN0']  = 0x802D5998    
 
-    module.setRamp(True)
-    module.setRampMode(RampMode.CONT_TRIANGULAR)
+    module.sendConfig()
 
-    module.setPumpSetting(current=0.3125)
-    module.setModulationInterval(centerFreq=9.15e8, bandwidth=1e8, tm=1.024e-3)
-    module.setMuxout(Muxout.THREE_STATE)
-    
     return module
 
 def singleRamp5800Default(module):

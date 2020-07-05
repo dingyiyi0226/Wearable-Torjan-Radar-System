@@ -38,12 +38,12 @@ class FMCWRadar:
 
         self._adc = adc
         self._adc.setProcessor(self)
-        if self._adc.name == "5.8":
-            self._signalModule = ADF4158.set5800Default(pins=ADF_HIGH_PINS)
-            self.setModuleProperty(5.8e9, 1e8, 4e-3, 0 * 2.24)
         if self._adc.name == "915":
             self._signalModule = ADF4158.set915Default(pins=ADF_LOW_PINS)
             self.setModuleProperty(915e6, 1.5e7, 4e-3, 0 * 2.24)
+        elif self._adc.name == "5.8":
+            self._signalModule = ADF4158.set5800Default(pins=ADF_HIGH_PINS)
+            self.setModuleProperty(5.8e9, 1e8, 4e-3, 0 * 2.24)
 
         ## SIGNAL PROCESSING
 
