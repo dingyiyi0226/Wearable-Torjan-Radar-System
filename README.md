@@ -15,3 +15,7 @@
     ```
     python3 main_control.py
     ```
+
+## Links
+-  [Final report](https://resourcecenter.ieeeaps.org/conferences/2020-ap-symposium/APS2020SYMFIN0160.html)
+-  [SDC site](https://2020apsursi.org/StudentDesignContest.asp)
