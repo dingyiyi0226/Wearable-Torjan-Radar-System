@@ -2,7 +2,6 @@
 
 2020 IEEE AP-S Student Design Contest - Team Troy
 
-[Demo Video](https://youtu.be/o_KWvV_8DFA)
 
 ## How to use
 
@@ -17,5 +16,6 @@
     ```
 
 ## Links
--  [Final report](https://resourcecenter.ieeeaps.org/conferences/2020-ap-symposium/APS2020SYMFIN0160.html)
 -  [SDC site](https://2020apsursi.org/StudentDesignContest.asp)
+-  [Final report](https://resourcecenter.ieeeaps.org/conferences/2020-ap-symposium/APS2020SYMFIN0160.html)
+-  [Demo video](https://youtu.be/o_KWvV_8DFA)
